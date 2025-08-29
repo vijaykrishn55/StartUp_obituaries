@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { 
@@ -7,8 +7,12 @@ import {
   MagnifyingGlassIcon,
   TrophyIcon,
   UsersIcon,
-  ChatBubbleLeftIcon
+  ChatBubbleLeftIcon,
+  ChevronDownIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
+import { cn } from '../lib/utils'
+import { industries } from '../lib/constants'
 import { startupsAPI, usersAPI, commentsAPI } from '../lib/api'
 import StartupCard from '../components/StartupCard'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -28,6 +32,9 @@ export default function DashboardPage() {
   const [error, setError] = useState(null)
   const [activeFilter, setActiveFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const [industryFilters, setIndustryFilters] = useState([])
+  const filterDropdownRef = useRef(null)
   const [stats, setStats] = useState({
     totalStories: 0,
     thisWeek: 0,
@@ -74,24 +81,35 @@ export default function DashboardPage() {
     }
   }, [startups])
 
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target)) {
+        setShowFilters(false)
+      }
+    }
+
+    if (showFilters) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+  }, [showFilters])
+
   const loadStats = async () => {
     try {
       setStats(prev => ({ ...prev, loading: true }));
       
       // Get users first to count unique contributors
       const usersRes = await usersAPI.getUsers();
-      const uniqueContributors = new Set(usersRes.data.map(u => u.id)).size;
+      const usersData = usersRes.data.users || usersRes.data || [];
+      const uniqueContributors = new Set(usersData.map(u => u.id)).size;
       
-      // Get comments count for all startups
-      const commentsRes = await Promise.all(
-        startups.map(s => 
-          commentsAPI.getComments(s.id)
-            .then(res => res.data.length)
-            .catch(() => 0)
-        )
-      );
-      
-      const totalLessons = commentsRes.reduce((sum, count) => sum + count, 0);
+      // Count startups that have lessons_learned content
+      const totalLessons = startups.filter(startup => 
+        startup.lessons_learned && startup.lessons_learned.trim().length > 0
+      ).length;
       
       // Get this week's count from the already loaded startups
       const oneWeekAgo = new Date();
@@ -127,8 +145,19 @@ export default function DashboardPage() {
         new Date(startup.created_at) > oneWeekAgo
       ).length;
       
+      const trendingCount = startupsData.filter(startup => {
+        const totalEngagement = (startup.upvote_count || 0) + (startup.downvote_count || 0) + (startup.comment_count || 0)
+        return totalEngagement > 0
+      }).length;
+      
+      const fundedCount = startupsData.filter(startup => 
+        startup.funding_amount_usd > 0
+      ).length;
+      
       filters[0].count = startupsData.length;
       filters[1].count = thisWeekCount;
+      filters[2].count = trendingCount;
+      filters[3].count = fundedCount;
     } catch (error) {
       console.error('Failed to load startups:', error)
       setError('Failed to load startups. Please check your connection and try again.')
@@ -148,25 +177,66 @@ export default function DashboardPage() {
     }
   }
 
-  const filteredStartups = startups.filter(startup => {
-    const matchesSearch = startup.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         startup.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         startup.industry?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         startup.primary_failure_reason?.toLowerCase().includes(searchQuery.toLowerCase())
+  const getFilteredStartups = () => {
+    let filtered = [...startups]
     
-    if (activeFilter === 'all') return matchesSearch
+    // Apply filter logic
     if (activeFilter === 'recent') {
-      const isRecent = new Date(startup.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-      return matchesSearch && isRecent
+      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      filtered = filtered.filter(startup => new Date(startup.created_at) > oneWeekAgo)
+    } else if (activeFilter === 'trending') {
+      // Sort by engagement (reactions + comments) in last 7 days with recency weight
+      const now = new Date()
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      
+      filtered = filtered
+        .filter(startup => {
+          const createdAt = new Date(startup.created_at)
+          const totalEngagement = (startup.upvote_count || 0) + (startup.downvote_count || 0) + (startup.pivot_count || 0) + (startup.comment_count || 0)
+          return totalEngagement > 0 && createdAt > oneWeekAgo
+        })
+        .sort((a, b) => {
+          const aEngagement = (a.upvote_count || 0) + (a.downvote_count || 0) + (a.pivot_count || 0) + (a.comment_count || 0)
+          const bEngagement = (b.upvote_count || 0) + (b.downvote_count || 0) + (b.pivot_count || 0) + (b.comment_count || 0)
+          
+          // Add recency boost (newer posts get slight advantage)
+          const aRecency = (now - new Date(a.created_at)) / (1000 * 60 * 60 * 24) // days old
+          const bRecency = (now - new Date(b.created_at)) / (1000 * 60 * 60 * 24)
+          const aScore = aEngagement * (1 + Math.max(0, (7 - aRecency) / 7) * 0.2)
+          const bScore = bEngagement * (1 + Math.max(0, (7 - bRecency) / 7) * 0.2)
+          
+          return bScore - aScore
+        })
+        .slice(0, 7)
+    } else if (activeFilter === 'most-funded') {
+      filtered = filtered
+        .filter(startup => startup.funding_amount_usd > 0)
+        .sort((a, b) => (b.funding_amount_usd || 0) - (a.funding_amount_usd || 0))
+        .slice(0, 6)
     }
-    if (activeFilter === 'trending') {
-      return matchesSearch && (startup.reaction_count > 0 || startup.comment_count > 0)
+    
+    // Apply industry filter
+    if (industryFilters.length > 0) {
+      filtered = filtered.filter(startup => 
+        industryFilters.includes(startup.industry)
+      )
     }
-    if (activeFilter === 'most-funded') {
-      return matchesSearch && startup.total_funding_amount > 0
+    
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(startup => {
+        const query = searchQuery.toLowerCase()
+        return startup.name?.toLowerCase().includes(query) ||
+               startup.description?.toLowerCase().includes(query) ||
+               startup.industry?.toLowerCase().includes(query) ||
+               startup.primary_failure_reason?.toLowerCase().includes(query)
+      })
     }
-    return matchesSearch
-  })
+    
+    return filtered
+  }
+  
+  const filteredStartups = getFilteredStartups()
 
   if (loading) {
     return <LoadingSpinner />
@@ -236,10 +306,69 @@ export default function DashboardPage() {
                   className="input pl-10"
                 />
               </div>
-              <button className="btn-outline flex items-center">
-                <FunnelIcon className="h-5 w-5 mr-2" />
-                Filters
-              </button>
+              <div className="relative" ref={filterDropdownRef}>
+                <button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={cn(
+                    'flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors',
+                    showFilters && 'bg-gray-50'
+                  )}
+                >
+                  <FunnelIcon className="h-4 w-4" />
+                  <span>Filters</span>
+                  {industryFilters.length > 0 && (
+                    <span className="bg-primary-100 text-primary-800 px-2 py-0.5 rounded-full text-xs font-medium">
+                      {industryFilters.length}
+                    </span>
+                  )}
+                  <ChevronDownIcon className={cn(
+                    'h-4 w-4 transition-transform',
+                    showFilters && 'rotate-180'
+                  )} />
+                </button>
+                
+                {showFilters && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                    <div className="p-4">
+                      <h3 className="font-medium text-gray-900 mb-3">Filter by Industry</h3>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {(() => {
+                          const uniqueIndustries = [...new Set(startups.map(s => s.industry).filter(Boolean))]
+                          return uniqueIndustries.map(industry => (
+                            <label key={industry} className="flex items-center">
+                              <input 
+                                type="checkbox" 
+                                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setIndustryFilters([...industryFilters, industry])
+                                  } else {
+                                    setIndustryFilters(industryFilters.filter(f => f !== industry))
+                                  }
+                                }}
+                                checked={industryFilters.includes(industry)}
+                              />
+                              <span className="ml-2 text-sm text-gray-700">{industry}</span>
+                            </label>
+                          ))
+                        })()}
+                      </div>
+                      
+                      <div className="mt-4 pt-3 border-t border-gray-200">
+                        <button 
+                          onClick={() => {
+                            setIndustryFilters([])
+                            setShowFilters(false)
+                          }}
+                          className="w-full btn-outline text-sm"
+                        >
+                          Clear Filters
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Filter Tabs */}
@@ -249,11 +378,12 @@ export default function DashboardPage() {
                   <button
                     key={filter.id}
                     onClick={() => setActiveFilter(filter.id)}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    className={cn(
+                      'py-2 px-1 border-b-2 font-medium text-sm transition-colors',
                       activeFilter === filter.id
                         ? 'border-primary-500 text-primary-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                    )}
                   >
                     {filter.name}
                     <span className="ml-2 bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs">
@@ -265,8 +395,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Featured Stories */}
-          {featuredStartups.length > 0 && (
+          {/* Featured Stories - only show when not searching, on 'all' filter, and no industry filters */}
+          {featuredStartups.length > 0 && !searchQuery && activeFilter === 'all' && industryFilters.length === 0 && (
             <div className="mb-8">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Featured Stories</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -310,18 +440,35 @@ export default function DashboardPage() {
           <div className="card">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Trending Topics</h3>
             <div className="space-y-2">
-              {startups.length > 0 ? (
-                startups.slice(0, 5).map((startup, index) => (
-                  <div key={startup.id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">{startup.primary_failure_reason || startup.industry || 'General Failure'}</span>
-                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
-                      {startup.reaction_count || 0}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-gray-500">No trending topics yet</div>
-              )}
+              {(() => {
+                // Get unique failure reasons and their counts
+                const topicCounts = {}
+                startups.forEach(startup => {
+                  const topic = startup.primary_failure_reason || 'Other'
+                  if (!topicCounts[topic]) {
+                    topicCounts[topic] = 0
+                  }
+                  topicCounts[topic] += 1
+                })
+                
+                // Sort by count and get top 5
+                const sortedTopics = Object.entries(topicCounts)
+                  .sort(([,a], [,b]) => b - a)
+                  .slice(0, 5)
+                
+                return sortedTopics.length > 0 ? (
+                  sortedTopics.map(([topic, count]) => (
+                    <div key={topic} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">{topic}</span>
+                      <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
+                        {count}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-gray-500">No trending topics yet</div>
+                )
+              })()}
             </div>
           </div>
 

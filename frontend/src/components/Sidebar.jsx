@@ -8,7 +8,7 @@ import {
   ChatBubbleLeftRightIcon,
   UserIcon
 } from '@heroicons/react/24/outline'
-import { clsx } from 'clsx'
+import { cn } from '../lib/utils'
 
 const navigation = [
   { name: 'Feed', href: '/dashboard', icon: HomeIcon },
@@ -34,7 +34,7 @@ export default function Sidebar() {
                   <li key={item.name}>
                     <Link
                       to={item.href}
-                      className={clsx(
+                      className={cn(
                         location.pathname === item.href
                           ? 'bg-primary-50 text-primary-600 border-r-2 border-primary-600'
                           : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50',
@@ -42,7 +42,7 @@ export default function Sidebar() {
                       )}
                     >
                       <item.icon
-                        className={clsx(
+                        className={cn(
                           location.pathname === item.href ? 'text-primary-600' : 'text-gray-400 group-hover:text-primary-600',
                           'h-6 w-6 shrink-0'
                         )}

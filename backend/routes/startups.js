@@ -1,9 +1,13 @@
 // routes/startups.js
 const express = require("express");
-const router = express.Router();
-const { pool } = require("../config/database");
+const { pool } = require('../config/database');
 const { optionalAuth, authenticateToken } = require("../middleware/auth");
+const upload = require('../middleware/upload');
+const path = require('path');
+const fs = require('fs');
 const { validateStartupCreation } = require("../utils/validation");
+
+const router = express.Router();
 
 // ✅ Get all startups (with reactions + comments count + pagination)
 router.get("/", optionalAuth, async (req, res) => {
@@ -52,18 +56,18 @@ router.get("/", optionalAuth, async (req, res) => {
         
         return {
           ...startup,
-          rip_count: startupReactions.find(r => r.type === '🪦')?.count || 0,
-          pivot_count: startupReactions.find(r => r.type === '🔁')?.count || 0,
-          brilliant_count: startupReactions.find(r => r.type === '💡')?.count || 0,
+          upvotes: startupReactions.find(r => r.type === 'upvote')?.count || 0,
+          downvotes: startupReactions.find(r => r.type === 'downvote')?.count || 0,
+          pivot: startupReactions.find(r => r.type === 'pivot')?.count || 0,
           comment_count: startupComments?.count || 0
         };
       });
     } else {
       rows = startups.map(startup => ({
         ...startup,
-        rip_count: 0,
-        pivot_count: 0,
-        brilliant_count: 0,
+        upvotes: 0,
+        downvotes: 0,
+        pivot: 0,
         comment_count: 0
       }));
     }
@@ -80,9 +84,9 @@ router.get("/featured", optionalAuth, async (req, res) => {
   try {
     const [rows] = await pool.execute(
       `SELECT s.*, u.username as creator_username,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = '🪦'), 0) as rip_count,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = '🔁'), 0) as pivot_count,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = '💡'), 0) as brilliant_count,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'upvote'), 0) as upvotes,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'downvote'), 0) as downvotes,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'pivot'), 0) as pivot,
              COALESCE((SELECT COUNT(*) FROM Comments c WHERE c.startup_id = s.id), 0) as comment_count
       FROM Startups s
       JOIN Users u ON s.created_by_user_id = u.id
@@ -106,9 +110,9 @@ router.get("/:id", optionalAuth, async (req, res) => {
 
     const [rows] = await pool.execute(
       `SELECT s.*, u.username as creator_username,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = '🪦'), 0) as rip_count,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = '🔁'), 0) as pivot_count,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = '💡'), 0) as brilliant_count,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'upvote'), 0) as upvotes,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'downvote'), 0) as downvotes,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'pivot'), 0) as pivot,
              COALESCE((SELECT COUNT(*) FROM Comments c WHERE c.startup_id = s.id), 0) as comment_count
       FROM Startups s
       JOIN Users u ON s.created_by_user_id = u.id
@@ -369,6 +373,104 @@ router.get("/:startupId/join-requests", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Get join requests error:", err);
     res.status(500).json({ error: "Failed to fetch join requests" });
+  }
+});
+
+// POST /api/startups/:id/logo - Upload startup logo
+router.post('/:id/logo', authenticateToken, upload.single('logo'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Check if startup exists and user owns it
+    const [startups] = await pool.execute(
+      'SELECT user_id, logo_url FROM Startups WHERE id = ?',
+      [id]
+    );
+
+    if (startups.length === 0) {
+      // Clean up uploaded file
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Startup not found' });
+    }
+
+    if (startups[0].user_id !== req.user.id) {
+      // Clean up uploaded file
+      fs.unlinkSync(req.file.path);
+      return res.status(403).json({ error: 'Not authorized to update this startup' });
+    }
+
+    // Delete old logo if exists
+    if (startups[0].logo_url) {
+      const oldLogoPath = path.join(__dirname, '..', 'uploads', path.basename(startups[0].logo_url));
+      if (fs.existsSync(oldLogoPath)) {
+        fs.unlinkSync(oldLogoPath);
+      }
+    }
+
+    // Update startup with new logo URL
+    const logoUrl = `/uploads/${req.file.filename}`;
+    await pool.execute(
+      'UPDATE Startups SET logo_url = ? WHERE id = ?',
+      [logoUrl, id]
+    );
+
+    res.json({
+      message: 'Logo uploaded successfully',
+      logo_url: logoUrl
+    });
+
+  } catch (error) {
+    // Clean up uploaded file on error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    console.error('Upload logo error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/startups/:id/logo - Delete startup logo
+router.delete('/:id/logo', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if startup exists and user owns it
+    const [startups] = await pool.execute(
+      'SELECT user_id, logo_url FROM Startups WHERE id = ?',
+      [id]
+    );
+
+    if (startups.length === 0) {
+      return res.status(404).json({ error: 'Startup not found' });
+    }
+
+    if (startups[0].user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized to update this startup' });
+    }
+
+    // Delete logo file if exists
+    if (startups[0].logo_url) {
+      const logoPath = path.join(__dirname, '..', 'uploads', path.basename(startups[0].logo_url));
+      if (fs.existsSync(logoPath)) {
+        fs.unlinkSync(logoPath);
+      }
+    }
+
+    // Update startup to remove logo URL
+    await pool.execute(
+      'UPDATE Startups SET logo_url = NULL WHERE id = ?',
+      [id]
+    );
+
+    res.json({ message: 'Logo deleted successfully' });
+
+  } catch (error) {
+    console.error('Delete logo error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

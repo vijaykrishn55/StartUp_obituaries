@@ -37,10 +37,7 @@ export default function LoginPage() {
               Welcome back
             </h2>
             <p className="mt-2 text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
-                Sign up here
-              </Link>
+              Sign in to your account to continue
             </p>
           </div>
 
@@ -179,6 +176,20 @@ export default function LoginPage() {
                 </div>
               </div>
             </motion.div>
+          </div>
+
+          <div className="text-center space-y-2 mt-6">
+            <p className="text-sm text-gray-600">
+              <Link to="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
+                Forgot your password?
+              </Link>
+            </p>
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
+              <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
+                Sign up here
+              </Link>
+            </p>
           </div>
         </div>
       </div>

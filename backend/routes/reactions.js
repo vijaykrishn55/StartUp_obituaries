@@ -31,15 +31,18 @@ router.get('/:startupId/reactions', async (req, res) => {
     // Calculate reaction counts
     let upvotes = 0;
     let downvotes = 0;
+    let pivot = 0;
     
     reactions.forEach(reaction => {
       if (reaction.type === 'upvote') upvotes = reaction.count;
       if (reaction.type === 'downvote') downvotes = reaction.count;
+      if (reaction.type === 'pivot') pivot = reaction.count;
     });
 
     res.json({
       upvotes,
-      downvotes
+      downvotes,
+      pivot
     });
 
   } catch (error) {
@@ -55,9 +58,9 @@ router.post('/:startupId/reaction', authenticateToken, async (req, res) => {
     const { type } = req.body;
 
     // Validate reaction type
-    const validTypes = ['upvote', 'downvote'];
+    const validTypes = ['upvote', 'downvote', 'pivot'];
     if (!validTypes.includes(type)) {
-      return res.status(400).json({ error: 'Invalid reaction type. Must be either upvote or downvote' });
+      return res.status(400).json({ error: 'Invalid reaction type. Must be upvote, downvote, or pivot' });
     }
 
     // Check if startup exists
@@ -109,16 +112,19 @@ router.post('/:startupId/reaction', authenticateToken, async (req, res) => {
 
     let upvotes = 0;
     let downvotes = 0;
+    let pivot = 0;
     
     reactions.forEach(reaction => {
       if (reaction.type === 'upvote') upvotes = reaction.count;
       if (reaction.type === 'downvote') downvotes = reaction.count;
+      if (reaction.type === 'pivot') pivot = reaction.count;
     });
 
     res.status(201).json({
       message: 'Reaction updated successfully',
       upvotes,
-      downvotes
+      downvotes,
+      pivot
     });
 
   } catch (error) {
@@ -137,9 +143,9 @@ router.delete('/:startupId/reaction', authenticateToken, async (req, res) => {
     const { type } = req.body;
 
     // Validate reaction type
-    const validTypes = ['upvote', 'downvote'];
+    const validTypes = ['upvote', 'downvote', 'pivot'];
     if (!validTypes.includes(type)) {
-      return res.status(400).json({ error: 'Invalid reaction type. Must be either upvote or downvote' });
+      return res.status(400).json({ error: 'Invalid reaction type. Must be upvote, downvote, or pivot' });
     }
 
     // Remove reaction
@@ -163,16 +169,19 @@ router.delete('/:startupId/reaction', authenticateToken, async (req, res) => {
 
     let upvotes = 0;
     let downvotes = 0;
+    let pivot = 0;
     
     reactions.forEach(reaction => {
       if (reaction.type === 'upvote') upvotes = reaction.count;
       if (reaction.type === 'downvote') downvotes = reaction.count;
+      if (reaction.type === 'pivot') pivot = reaction.count;
     });
 
     res.json({
       message: 'Reaction removed successfully',
       upvotes,
-      downvotes
+      downvotes,
+      pivot
     });
 
   } catch (error) {

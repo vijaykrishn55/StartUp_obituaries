@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
+import { startupsAPI } from '../lib/api'
+import { FAILURE_REASONS, STARTUP_STAGES } from '../lib/constants'
+import LogoUpload from '../components/LogoUpload'
 import { 
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline'
-import { startupsAPI } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 
 const steps = [
@@ -42,6 +44,8 @@ const stages = [
 export default function CreateStartupPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [createdStartupId, setCreatedStartupId] = useState(null)
+  const [logoUrl, setLogoUrl] = useState(null)
   const { user } = useAuthStore()
   const navigate = useNavigate()
   
@@ -99,7 +103,8 @@ export default function CreateStartupPage() {
       }
 
       const response = await startupsAPI.createStartup(formattedData)
-      navigate(`/startup/${response.data.startup.id}`)
+      setCreatedStartupId(response.data.id)
+      navigate(`/startup/${response.data.id}`)
     } catch (error) {
       console.error('Failed to create startup:', error)
       alert('Failed to create startup obituary. Please try again.')
@@ -127,6 +132,13 @@ export default function CreateStartupPage() {
                 <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
               )}
             </div>
+
+            <LogoUpload
+              startupId={createdStartupId}
+              currentLogo={logoUrl}
+              onLogoUpdate={setLogoUrl}
+              disabled={!createdStartupId}
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

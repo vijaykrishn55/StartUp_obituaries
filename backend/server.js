@@ -2,9 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const http = require('http');
 require('dotenv').config();
 
 const { testConnection } = require('./config/database');
+const { initializeSocket } = require('./socket');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -18,6 +20,7 @@ const messageRoutes = require('./routes/messages');
 const leaderboardRoutes = require('./routes/leaderboards');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 // Security middleware
@@ -54,6 +57,9 @@ const authLimiter = rateLimit({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve static files (uploads)
+app.use('/uploads', express.static('uploads'));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
@@ -69,10 +75,14 @@ app.use('/api/users', userRoutes);
 app.use('/api/startups', startupRoutes);
 app.use('/api', teamRoutes); // Team routes include both /startups/:id/team and /team/:id
 app.use('/api/startups', reactionRoutes); // Reaction routes for /startups/:id/reactions
-app.use('/api', commentRoutes); // Comment routes for /startups/:id/comments and /comments/:id
-app.use('/api', connectionRoutes); // Connection routes
-app.use('/api', messageRoutes); // Message routes
-app.use('/api', leaderboardRoutes); // Leaderboard routes
+app.use('/api/comments', commentRoutes); // Comment routes for /startups/:id/comments and /comments/:id
+app.use('/api/connections', connectionRoutes); // Connection routes
+app.use('/api/messages', messageRoutes); // Message routes
+app.use('/api/leaderboards', leaderboardRoutes); // Leaderboard routes
+app.use('/api/stats', require('./routes/stats')); // Stats routes
+app.use('/api/admin', require('./routes/admin')); // Admin routes
+app.use('/api/reports', require('./routes/reports')); // Reports routes
+app.use('/api/analytics', require('./routes/analytics')); // Analytics routes
 
 // Global error handling middleware
 app.use((err, req, res, next) => {
@@ -101,10 +111,14 @@ const startServer = async () => {
     // Test database connection
     await testConnection();
     
-    app.listen(PORT, () => {
+    // Initialize Socket.IO
+    const io = initializeSocket(server);
+    
+    server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+      console.log(`🔌 Socket.IO server initialized`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
   } catch (error) {

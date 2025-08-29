@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { authAPI } from '../lib/api'
+import { authAPI, usersAPI } from '../lib/api'
 
 export const useAuthStore = create((set, get) => ({
   user: null,
@@ -28,7 +28,7 @@ export const useAuthStore = create((set, get) => ({
   verifyToken: async () => {
     try {
       const response = await authAPI.getProfile()
-      set({ user: response.data.user })
+      set({ user: response.data })
     } catch (error) {
       get().logout()
     }
@@ -83,14 +83,14 @@ export const useAuthStore = create((set, get) => ({
   updateProfile: async (profileData) => {
     set({ isLoading: true, error: null })
     try {
-      const response = await authAPI.updateProfile(profileData)
-      const updatedUser = response.data.user
+      const response = await usersAPI.updateProfile(profileData)
+      const updatedUser = response.data
       
       localStorage.setItem('user', JSON.stringify(updatedUser))
       set({ user: updatedUser, isLoading: false })
       return { success: true }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Profile update failed'
+      const errorMessage = error.response?.data?.error || 'Profile update failed'
       set({ error: errorMessage, isLoading: false })
       return { success: false, error: errorMessage }
     }

@@ -32,13 +32,13 @@ Authorization: Bearer <token>
 - `DELETE /startups/:id` - Delete startup
 
 ### Reactions
-- `GET /startups/:id/reactions` - Get reactions
-- `POST /startups/:id/reaction` - Add reaction
-- `DELETE /startups/:id/reaction` - Remove reaction
+- `GET /startups/:startupId/reactions` - Get reactions (upvotes/downvotes)
+- `POST /startups/:startupId/reaction` - Add reaction (upvote/downvote)
+- `DELETE /startups/:startupId/reaction` - Remove reaction
 
 ### Comments
-- `GET /startups/:id/comments` - Get comments
-- `POST /startups/:id/comments` - Create comment
+- `GET /startups/:startupId/comments` - Get comments
+- `POST /startups/:startupId/comments` - Create comment
 - `PUT /comments/:id` - Edit comment
 - `DELETE /comments/:id` - Delete comment
 
@@ -53,7 +53,17 @@ Authorization: Bearer <token>
 - `POST /messages` - Send message
 
 ### Leaderboards
-- `GET /leaderboards/most-tragic`
-- `GET /leaderboards/deserved-pivot`
-- `GET /leaderboards/brilliant-mistakes`
-- `GET /leaderboards/most-funded-failures`
+- `GET /leaderboards/most-downvoted` - Most downvoted startups
+- `GET /leaderboards/most-upvoted` - Most upvoted startups
+- `GET /leaderboards/most-tragic` - Most tragic failures
+- `GET /leaderboards/deserved-pivot` - Startups that should have pivoted
+- `GET /leaderboards/brilliant-mistakes` - Failures that taught lessons
+- `GET /leaderboards/most-funded-failures` - Biggest money burns
+
+### Team Management
+- `GET /startups/:startupId/team` - Get team members
+- `POST /startups/:startupId/team` - Add yourself to team
+- `POST /startups/:startupId/join-requests` - Request to join team
+- `GET /startups/:startupId/join-requests` - Get pending join requests (creator only)
+- `PUT /join-requests/:requestId` - Approve/reject join request
+- `DELETE /team/:memberId` - Remove team member

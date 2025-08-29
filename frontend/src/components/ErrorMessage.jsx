@@ -1,5 +1,5 @@
 import { ExclamationCircleIcon, XMarkIcon } from '@heroicons/react/24/outline'
-import { clsx } from 'clsx'
+import { cn } from '../lib/utils'
 
 export default function ErrorMessage({ 
   error, 
@@ -37,7 +37,7 @@ export default function ErrorMessage({
   const styles = variants[variant]
 
   return (
-    <div className={clsx(
+    <div className={cn(
       'rounded-md border p-4',
       styles.bg,
       styles.border,
@@ -45,10 +45,10 @@ export default function ErrorMessage({
     )}>
       <div className="flex">
         <div className="flex-shrink-0">
-          <ExclamationCircleIcon className={clsx('h-5 w-5', styles.icon)} />
+          <ExclamationCircleIcon className={cn('h-5 w-5', styles.icon)} />
         </div>
         <div className="ml-3 flex-1">
-          <p className={clsx('text-sm font-medium', styles.text)}>
+          <p className={cn('text-sm font-medium', styles.text)}>
             {errorMessage}
           </p>
         </div>
@@ -58,7 +58,7 @@ export default function ErrorMessage({
               <button
                 type="button"
                 onClick={onDismiss}
-                className={clsx(
+                className={cn(
                   'inline-flex rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2',
                   styles.text,
                   'hover:bg-red-100 focus:ring-red-600'

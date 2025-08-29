@@ -5,12 +5,15 @@ const { validateConnectionRequest } = require('../utils/validation');
 
 const router = express.Router();
 
-// GET /api/connections - Get all accepted connections
+// GET /api/connections - Get all connections (accepted and pending)
 router.get('/connections', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.execute(
       `SELECT 
           c.id,
+          c.status,
+          c.sender_user_id,
+          c.receiver_user_id,
           c.created_at,
           CASE WHEN c.sender_user_id = ? THEN receiver.id ELSE sender.id END AS user_id,
           CASE WHEN c.sender_user_id = ? THEN receiver.username ELSE sender.username END AS user_name,
@@ -19,7 +22,7 @@ router.get('/connections', authenticateToken, async (req, res) => {
        FROM Connections c
        JOIN Users sender ON c.sender_user_id = sender.id
        JOIN Users receiver ON c.receiver_user_id = receiver.id
-       WHERE (c.sender_user_id = ? OR c.receiver_user_id = ?) AND c.status = 'accepted'
+       WHERE (c.sender_user_id = ? OR c.receiver_user_id = ?)
        ORDER BY c.created_at DESC`,
       [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]
     );

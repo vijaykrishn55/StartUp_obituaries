@@ -33,9 +33,12 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
+  register: (userData) => api.post('/auth/register', userData),
   getProfile: () => api.get('/auth/me'),
+  updateProfile: (profileData) => api.put('/auth/profile', profileData),
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
 }
 
 // Users API
@@ -47,12 +50,15 @@ export const usersAPI = {
 
 // Startups API
 export const startupsAPI = {
-  getFeatured: () => api.get('/startups/featured'),
-  getStartups: (params) => api.get('/startups', { params }),
-  createStartup: (startupData) => api.post('/startups', startupData),
+  getStartups: (params = {}) => api.get('/startups', { params }),
   getStartup: (id) => api.get(`/startups/${id}`),
+  createStartup: (startupData) => api.post('/startups', startupData),
   updateStartup: (id, startupData) => api.put(`/startups/${id}`, startupData),
   deleteStartup: (id) => api.delete(`/startups/${id}`),
+  uploadLogo: (id, formData) => api.post(`/startups/${id}/logo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  deleteLogo: (id) => api.delete(`/startups/${id}/logo`),
 }
 
 // Reactions API
@@ -81,8 +87,41 @@ export const connectionsAPI = {
 
 // Messages API
 export const messagesAPI = {
-  getMessages: (connectionId) => api.get(`/messages/${connectionId}`),
-  sendMessage: (connectionId, content) => api.post('/messages', { connection_id: connectionId, content }),
+  getMessages: (connectionId, params = {}) => 
+    api.get(`/messages/${connectionId}`, { params }),
+  
+  sendMessage: (connectionId, content) =>
+    api.post('/messages', { connection_id: connectionId, content })
+}
+
+export const statsAPI = {
+  getUserStats: (userId) => api.get(`/users/${userId}/stats`),
+  getLeaderboard: () => api.get('/stats/leaderboard')
+}
+
+export const adminAPI = {
+  getUsers: (params = {}) => api.get('/admin/users', { params }),
+  updateUser: (userId, data) => api.put(`/admin/users/${userId}`, data),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+  getStats: () => api.get('/admin/stats'),
+  getContent: (params = {}) => api.get('/admin/content', { params })
+}
+
+export const reportsAPI = {
+  createReport: (reportData) => api.post('/reports', reportData),
+  getReports: (params = {}) => api.get('/reports', { params }),
+  updateReportStatus: (reportId, data) => api.put(`/reports/${reportId}/status`, data)
+}
+
+export const analyticsAPI = {
+  getOverview: () => api.get('/analytics/overview'),
+  getUserGrowth: () => api.get('/analytics/user-growth'),
+  getStartupTrends: () => api.get('/analytics/startup-trends'),
+  getFailureReasons: () => api.get('/analytics/failure-reasons'),
+  getIndustryBreakdown: () => api.get('/analytics/industry-breakdown'),
+  getEngagement: () => api.get('/analytics/engagement'),
+  getFunding: () => api.get('/analytics/funding'),
+  getUserRoles: () => api.get('/analytics/user-roles')
 }
 
 // Leaderboards API

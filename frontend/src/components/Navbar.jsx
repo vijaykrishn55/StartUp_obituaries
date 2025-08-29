@@ -8,7 +8,7 @@ import {
   ChevronDownIcon 
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../stores/authStore'
-import { clsx } from 'clsx'
+import { cn } from '../lib/utils'
 
 export default function Navbar() {
   const { user, logout } = useAuthStore()
@@ -67,7 +67,7 @@ export default function Navbar() {
                     {({ active }) => (
                       <Link
                         to="/profile"
-                        className={clsx(
+                        className={cn(
                           active ? 'bg-gray-100' : '',
                           'block px-4 py-2 text-sm text-gray-700'
                         )}
@@ -80,7 +80,7 @@ export default function Navbar() {
                     {({ active }) => (
                       <Link
                         to="/my-startups"
-                        className={clsx(
+                        className={cn(
                           active ? 'bg-gray-100' : '',
                           'block px-4 py-2 text-sm text-gray-700'
                         )}
@@ -93,7 +93,7 @@ export default function Navbar() {
                     {({ active }) => (
                       <button
                         onClick={handleLogout}
-                        className={clsx(
+                        className={cn(
                           active ? 'bg-gray-100' : '',
                           'block w-full text-left px-4 py-2 text-sm text-gray-700'
                         )}

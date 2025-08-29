@@ -9,12 +9,11 @@ import {
   EyeIcon,
   CalendarIcon,
   CurrencyDollarIcon,
-  UserGroupIcon
 } from '@heroicons/react/24/outline'
 import { startupsAPI } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { clsx } from 'clsx'
+import { cn, formatCurrency, formatDate } from '../lib/utils'
 
 export default function MyStartupsPage() {
   const [startups, setStartups] = useState([])
@@ -28,7 +27,7 @@ export default function MyStartupsPage() {
   const loadMyStartups = async () => {
     try {
       const response = await startupsAPI.getStartups({ created_by: user.id })
-      setStartups(response.data.startups || [])
+      setStartups(response.data || [])
     } catch (error) {
       console.error('Failed to load startups:', error)
     } finally {
@@ -100,14 +99,6 @@ export default function MyStartupsPage() {
             {startups.reduce((sum, s) => sum + (s.views || 0), 0)}
           </div>
           <div className="text-sm text-gray-600">Total Views</div>
-        </div>
-        
-        <div className="card text-center">
-          <UserGroupIcon className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-gray-900">
-            {startups.reduce((sum, s) => sum + (s.reactions_count || 0), 0)}
-          </div>
-          <div className="text-sm text-gray-600">Total Reactions</div>
         </div>
         
         <div className="card text-center">

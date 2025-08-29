@@ -5,6 +5,8 @@ import Layout from './components/Layout'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import CreateStartupPage from './pages/CreateStartupPage'
 import StartupDetailPage from './pages/StartupDetailPage'
@@ -13,6 +15,8 @@ import LeaderboardsPage from './pages/LeaderboardsPage'
 import ConnectionsPage from './pages/ConnectionsPage'
 import MessagesPage from './pages/MessagesPage'
 import MyStartupsPage from './pages/MyStartupsPage'
+import AdminPage from './pages/AdminPage'
+import AnalyticsPage from './pages/AnalyticsPage'
 
 function App() {
   const { user, initialize } = useAuthStore()
@@ -27,6 +31,8 @@ function App() {
       <Route path="/" element={user ? <Navigate to="/dashboard" /> : <LandingPage />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <LoginPage />} />
       <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <RegisterPage />} />
+      <Route path="/forgot-password" element={user ? <Navigate to="/dashboard" /> : <ForgotPasswordPage />} />
+      <Route path="/reset-password" element={user ? <Navigate to="/dashboard" /> : <ResetPasswordPage />} />
       
       {/* Protected routes */}
       <Route path="/" element={user ? <Layout /> : <Navigate to="/login" />}>
@@ -38,6 +44,8 @@ function App() {
         <Route path="leaderboards" element={<LeaderboardsPage />} />
         <Route path="connections" element={<ConnectionsPage />} />
         <Route path="messages" element={<MessagesPage />} />
+        <Route path="admin" element={<AdminPage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
       </Route>
     </Routes>
   )

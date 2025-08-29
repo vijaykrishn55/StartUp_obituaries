@@ -44,7 +44,7 @@ router.get('/most-upvoted', async (req, res) => {
               COUNT(r.id) as upvote_count
        FROM Startups s
        JOIN Users u ON s.created_by_user_id = u.id
-       LEFT JOIN Reactions r ON s.id = r.startup_id AND r.type = 'brilliant_mistake'
+       LEFT JOIN Reactions r ON s.id = r.startup_id AND r.type = 'upvote'
        GROUP BY s.id
        ORDER BY upvote_count DESC, s.created_at DESC
        LIMIT ${limitInt}`
@@ -73,7 +73,7 @@ router.get('/most-tragic', async (req, res) => {
               COUNT(r.id) as reaction_count
        FROM Startups s
        JOIN Users u ON s.created_by_user_id = u.id
-       LEFT JOIN Reactions r ON s.id = r.startup_id AND r.type = 'rip'
+       LEFT JOIN Reactions r ON s.id = r.startup_id AND r.type = 'downvote'
        GROUP BY s.id
        ORDER BY reaction_count DESC, s.created_at DESC
        LIMIT ${limitInt}`
@@ -99,12 +99,13 @@ router.get('/deserved-pivot', async (req, res) => {
 
     const [startups] = await pool.execute(
       `SELECT s.*, u.username as creator_username,
-              COUNT(r.id) as reaction_count
+              COUNT(r.id) as pivot_count
        FROM Startups s
        JOIN Users u ON s.created_by_user_id = u.id
-       LEFT JOIN Reactions r ON s.id = r.startup_id AND r.type = 'deserved_pivot'
+       LEFT JOIN Reactions r ON s.id = r.startup_id AND r.type = 'pivot'
        GROUP BY s.id
-       ORDER BY reaction_count DESC, s.created_at DESC
+       HAVING pivot_count > 0
+       ORDER BY pivot_count DESC, s.created_at DESC
        LIMIT ${limitInt}`
     );
 
@@ -131,7 +132,7 @@ router.get('/brilliant-mistakes', async (req, res) => {
               COUNT(r.id) as reaction_count
        FROM Startups s
        JOIN Users u ON s.created_by_user_id = u.id
-       LEFT JOIN Reactions r ON s.id = r.startup_id AND r.type = 'brilliant_mistake'
+       LEFT JOIN Reactions r ON s.id = r.startup_id AND r.type = 'upvote'
        GROUP BY s.id
        ORDER BY reaction_count DESC, s.created_at DESC
        LIMIT ${limitInt}`
@@ -159,8 +160,8 @@ router.get('/most-funded-failures', async (req, res) => {
       `SELECT s.*, u.username as creator_username
        FROM Startups s
        JOIN Users u ON s.created_by_user_id = u.id
-       WHERE s.total_funding_amount > 0
-       ORDER BY s.total_funding_amount DESC, s.created_at DESC
+       WHERE s.funding_amount_usd > 0
+       ORDER BY s.funding_amount_usd DESC, s.created_at DESC
        LIMIT ${limitInt}`
     );
 

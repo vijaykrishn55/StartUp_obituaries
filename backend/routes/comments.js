@@ -60,6 +60,18 @@ router.post('/startups/:startupId/comments', authenticateToken, validateComment,
     const { startupId } = req.params;
     const { content, parent_comment_id } = req.body;
 
+    // Get user role
+    const [userInfo] = await pool.execute(
+      'SELECT user_role FROM Users WHERE id = ?',
+      [req.user.id]
+    );
+
+    // Only allow students, founders, and investors to comment
+    const allowedRoles = ['student', 'founder', 'investor'];
+    if (!allowedRoles.includes(userInfo[0].user_role)) {
+      return res.status(403).json({ error: 'Only students, founders, and investors can comment' });
+    }
+
     // Check if startup exists
     const [startups] = await pool.execute(
       'SELECT id FROM Startups WHERE id = ?',
@@ -156,14 +168,19 @@ router.put('/comments/:commentId', authenticateToken, validateComment, async (re
   }
 });
 
-// DELETE /api/comments/:commentId - Delete your own comment
+// DELETE /api/comments/:commentId - Delete comment (own comment or if founder/investor of startup)
 router.delete('/comments/:commentId', authenticateToken, async (req, res) => {
   try {
     const { commentId } = req.params;
 
-    // Check if comment exists and belongs to user
+    // Get comment info with startup details
     const [comments] = await pool.execute(
-      'SELECT id, user_id FROM Comments WHERE id = ?',
+      `SELECT c.id, c.user_id, c.startup_id, s.created_by_user_id,
+              u.user_role as commenter_role
+       FROM Comments c
+       JOIN Startups s ON c.startup_id = s.id
+       JOIN Users u ON c.user_id = u.id
+       WHERE c.id = ?`,
       [commentId]
     );
 
@@ -171,8 +188,29 @@ router.delete('/comments/:commentId', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Comment not found' });
     }
 
-    if (comments[0].user_id !== req.user.id) {
-      return res.status(403).json({ error: 'You can only delete your own comments' });
+    const comment = comments[0];
+    
+    // Get current user's role and check if they're a team member
+    const [userInfo] = await pool.execute(
+      'SELECT user_role FROM Users WHERE id = ?',
+      [req.user.id]
+    );
+
+    const [teamMember] = await pool.execute(
+      'SELECT id FROM TeamMembers WHERE user_id = ? AND startup_id = ?',
+      [req.user.id, comment.startup_id]
+    );
+
+    const canDelete = 
+      comment.user_id === req.user.id || // Own comment
+      comment.created_by_user_id === req.user.id || // Startup creator
+      (userInfo[0].user_role === 'founder' && teamMember.length > 0) || // Team member founder
+      userInfo[0].user_role === 'investor'; // Investor can moderate
+
+    if (!canDelete) {
+      return res.status(403).json({ 
+        error: 'You can only delete your own comments or moderate as founder/investor' 
+      });
     }
 
     // Delete comment (cascading will handle replies)

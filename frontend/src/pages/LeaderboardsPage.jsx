@@ -10,49 +10,49 @@ import {
 } from '@heroicons/react/24/outline'
 import { leaderboardsAPI } from '../lib/api'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { clsx } from 'clsx'
+import { cn, formatCurrency } from '../lib/utils'
 
 const leaderboardTypes = [
   {
-    id: 'most-tragic',
-    name: 'Most Tragic',
-    description: 'The most heartbreaking startup failures',
+    id: 'most-downvoted',
+    name: 'Most Downvoted',
+    description: 'The most criticized startup failures',
     icon: TrophyIcon,
     color: 'text-red-600',
     bgColor: 'bg-red-50',
     borderColor: 'border-red-200'
   },
   {
-    id: 'deserved-pivot',
-    name: 'Deserved Pivot',
-    description: 'Startups that should have pivoted sooner',
-    icon: ArrowPathIcon,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200'
-  },
-  {
-    id: 'brilliant-mistakes',
-    name: 'Brilliant Mistakes',
+    id: 'most-upvoted',
+    name: 'Most Upvoted',
     description: 'Failures that taught valuable lessons',
     icon: LightBulbIcon,
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-50',
-    borderColor: 'border-yellow-200'
+    color: 'text-green-600',
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-200'
+  },
+  {
+    id: 'most-tragic',
+    name: 'Most Tragic',
+    description: 'The most heartbreaking startup failures',
+    icon: FireIcon,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-200'
   },
   {
     id: 'most-funded-failures',
     name: 'Most Funded Failures',
     description: 'Biggest money burns in startup history',
     icon: CurrencyDollarIcon,
-    color: 'text-green-600',
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200'
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200'
   }
 ]
 
 export default function LeaderboardsPage() {
-  const [activeLeaderboard, setActiveLeaderboard] = useState('most-tragic')
+  const [activeLeaderboard, setActiveLeaderboard] = useState('most-downvoted')
   const [leaderboardData, setLeaderboardData] = useState({})
   const [loading, setLoading] = useState(true)
 
@@ -62,25 +62,25 @@ export default function LeaderboardsPage() {
 
   const loadAllLeaderboards = async () => {
     try {
-      const [tragic, pivot, brilliant, funded] = await Promise.all([
+      const [downvoted, upvoted, tragic, funded] = await Promise.all([
+        leaderboardsAPI.getMostDownvoted().catch(() => ({ data: { startups: [] } })),
+        leaderboardsAPI.getMostUpvoted().catch(() => ({ data: { startups: [] } })),
         leaderboardsAPI.getMostTragic().catch(() => ({ data: { startups: [] } })),
-        leaderboardsAPI.getDeservedPivot().catch(() => ({ data: { startups: [] } })),
-        leaderboardsAPI.getBrilliantMistakes().catch(() => ({ data: { startups: [] } })),
         leaderboardsAPI.getMostFundedFailures().catch(() => ({ data: { startups: [] } }))
       ])
 
       setLeaderboardData({
+        'most-downvoted': downvoted.data.startups || downvoted.data || [],
+        'most-upvoted': upvoted.data.startups || upvoted.data || [],
         'most-tragic': tragic.data.startups || tragic.data || [],
-        'deserved-pivot': pivot.data.startups || pivot.data || [],
-        'brilliant-mistakes': brilliant.data.startups || brilliant.data || [],
         'most-funded-failures': funded.data.startups || funded.data || []
       })
     } catch (error) {
       console.error('Failed to load leaderboards:', error)
       setLeaderboardData({
+        'most-downvoted': [],
+        'most-upvoted': [],
         'most-tragic': [],
-        'deserved-pivot': [],
-        'brilliant-mistakes': [],
         'most-funded-failures': []
       })
     } finally {
@@ -110,14 +110,12 @@ export default function LeaderboardsPage() {
 
   const getMetricValue = (startup, type) => {
     switch (type) {
-      case 'most-tragic':
-        return `${startup.reaction_count || startup.tragic_count || 0} 🪦`
-      case 'deserved-pivot':
-        return `${startup.pivot_count || startup.reaction_count || 0} 🔁`
-      case 'brilliant-mistakes':
-        return `${startup.brilliant_count || startup.reaction_count || 0} 💡`
+      case 'most-upvoted':
+        return `${startup.upvote_count || 0} ↑`
+      case 'most-downvoted':
+        return `${startup.downvote_count || 0} ↓`
       case 'most-funded-failures':
-        return formatCurrency(startup.total_funding_amount || startup.funding_amount || 0)
+        return formatCurrency(startup.funding_amount_usd || 0)
       default:
         return ''
     }
@@ -149,7 +147,7 @@ export default function LeaderboardsPage() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setActiveLeaderboard(leaderboard.id)}
-              className={clsx(
+              className={cn(
                 'p-4 rounded-lg border-2 text-left transition-all duration-200',
                 activeLeaderboard === leaderboard.id
                   ? `${leaderboard.bgColor} ${leaderboard.borderColor} ${leaderboard.color}`
@@ -157,18 +155,18 @@ export default function LeaderboardsPage() {
               )}
             >
               <div className="flex items-center space-x-3 mb-2">
-                <leaderboard.icon className={clsx(
+                <leaderboard.icon className={cn(
                   'h-6 w-6',
                   activeLeaderboard === leaderboard.id ? leaderboard.color : 'text-gray-400'
                 )} />
-                <h3 className={clsx(
+                <h3 className={cn(
                   'font-medium',
                   activeLeaderboard === leaderboard.id ? leaderboard.color : 'text-gray-900'
                 )}>
                   {leaderboard.name}
                 </h3>
               </div>
-              <p className={clsx(
+              <p className={cn(
                 'text-sm',
                 activeLeaderboard === leaderboard.id ? leaderboard.color : 'text-gray-600'
               )}>
@@ -206,7 +204,7 @@ export default function LeaderboardsPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className={clsx(
+                className={cn(
                   'flex items-center space-x-4 p-4 rounded-lg border',
                   index < 3 ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200' : 'bg-gray-50 border-gray-200'
                 )}

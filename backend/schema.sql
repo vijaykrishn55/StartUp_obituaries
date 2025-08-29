@@ -16,6 +16,7 @@ CREATE TABLE Users (
     skills JSON,
     linkedin_url VARCHAR(500),
     github_url VARCHAR(500),
+    user_role ENUM('student', 'founder', 'investor', 'recruiter') DEFAULT 'student',
     is_recruiter BOOLEAN DEFAULT FALSE,
     open_to_work BOOLEAN DEFAULT FALSE,
     open_to_co_founding BOOLEAN DEFAULT FALSE,
@@ -25,7 +26,7 @@ CREATE TABLE Users (
 
 -- Startups table
 CREATE TABLE Startups (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     industry VARCHAR(100),
@@ -51,6 +52,7 @@ CREATE TABLE Startups (
     key_investors JSON,
     peak_metrics JSON,
     links JSON,
+    logo_url VARCHAR(500),
     is_anonymous BOOLEAN DEFAULT FALSE,
     created_by_user_id INT NOT NULL,
     FOREIGN KEY (created_by_user_id) REFERENCES Users(id) ON DELETE CASCADE,
@@ -86,7 +88,7 @@ CREATE TABLE Comments (
 
 CREATE TABLE Reactions (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    type ENUM('upvote', 'downvote') NOT NULL,
+    type ENUM('upvote', 'downvote', 'pivot') NOT NULL,
     user_id INT NOT NULL,
     startup_id INT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,

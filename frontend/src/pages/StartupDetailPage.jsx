@@ -24,20 +24,8 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import ReactionPanel from '../components/ReactionPanel'
 import CommentsSection from '../components/CommentsSection'
 import TeamSection from '../components/TeamSection'
-import { clsx } from 'clsx'
-
-const failureReasonColors = {
-  'Ran out of funding': 'bg-red-100 text-red-800 border-red-200',
-  'No Product-Market Fit': 'bg-orange-100 text-orange-800 border-orange-200',
-  'Poor Unit Economics': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  'Co-founder Conflict': 'bg-purple-100 text-purple-800 border-purple-200',
-  'Technical Debt': 'bg-blue-100 text-blue-800 border-blue-200',
-  'Got outcompeted': 'bg-gray-100 text-gray-800 border-gray-200',
-  'Bad Timing': 'bg-green-100 text-green-800 border-green-200',
-  'Legal/Regulatory Issues': 'bg-indigo-100 text-indigo-800 border-indigo-200',
-  'Pivot Fatigue': 'bg-pink-100 text-pink-800 border-pink-200',
-  'Other': 'bg-gray-100 text-gray-800 border-gray-200',
-}
+import LogoUpload from '../components/LogoUpload'
+import { cn, getFailureReasonStyle, formatCurrency, formatDate } from '../lib/utils'
 
 export default function StartupDetailPage() {
   const { id } = useParams()
@@ -45,9 +33,10 @@ export default function StartupDetailPage() {
   const navigate = useNavigate()
   const [startup, setStartup] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [reactions, setReactions] = useState({ upvotes: 0, downvotes: 0 })
+  const [reactions, setReactions] = useState({ upvotes: 0, downvotes: 0, pivot: 0 })
   const [userReaction, setUserReaction] = useState(null)
   const [isBookmarked, setIsBookmarked] = useState(false)
+  const [logoUrl, setLogoUrl] = useState(null)
 
   useEffect(() => {
     loadStartup()
@@ -57,7 +46,8 @@ export default function StartupDetailPage() {
   const loadStartup = async () => {
     try {
       const response = await startupsAPI.getStartup(id)
-      setStartup(response.data.startup)
+      setStartup(response.data)
+      setLogoUrl(response.data.logo_url)
     } catch (error) {
       console.error('Failed to load startup:', error)
       if (error.response?.status === 404) {
@@ -84,7 +74,7 @@ export default function StartupDetailPage() {
         setUserReaction(null)
         setReactions(prev => ({
           ...prev,
-          [type === 'upvote' ? 'upvotes' : 'downvotes']: prev[type === 'upvote' ? 'upvotes' : 'downvotes'] - 1
+          [type === 'upvote' ? 'upvotes' : type === 'downvote' ? 'downvotes' : 'pivot']: prev[type === 'upvote' ? 'upvotes' : type === 'downvote' ? 'downvotes' : 'pivot'] - 1
         }))
       } else {
         const response = await reactionsAPI.addReaction(id, type)
@@ -94,6 +84,11 @@ export default function StartupDetailPage() {
     } catch (error) {
       console.error('Failed to update reaction:', error)
     }
+  }
+
+  const handleLogoUpdate = (newLogoUrl) => {
+    setLogoUrl(newLogoUrl)
+    setStartup(prev => ({ ...prev, logo_url: newLogoUrl }))
   }
 
   const formatCurrency = (amount) => {
@@ -151,10 +146,25 @@ export default function StartupDetailPage() {
       {/* Header */}
       <div className="card mb-8">
         <div className="flex items-start justify-between mb-6">
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{startup.name}</h1>
+          <div className="flex items-start space-x-4 flex-1">
+            {logoUrl ? (
+              <img
+                src={`http://localhost:3000${logoUrl}`}
+                alt={`${startup.name} logo`}
+                className="w-16 h-16 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-bold text-xl">
+                  {startup.name?.charAt(0) || '?'}
+                </span>
+              </div>
+            )}
             
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{startup.name}</h1>
+              
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
               <div className="flex items-center">
                 <BuildingOfficeIcon className="h-4 w-4 mr-1" />
                 {startup.industry}
@@ -172,14 +182,15 @@ export default function StartupDetailPage() {
                   {startup.stage_at_death}
                 </span>
               )}
-            </div>
-
-            {startup.vision && (
-              <div className="mb-4">
-                <h3 className="text-sm font-medium text-gray-900 mb-1">Vision</h3>
-                <p className="text-gray-600 italic">"{startup.vision}"</p>
               </div>
-            )}
+
+              {startup.vision && (
+                <div className="mb-4">
+                  <h3 className="text-sm font-medium text-gray-900 mb-1">Vision</h3>
+                  <p className="text-gray-600 italic">"{startup.vision}"</p>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center space-x-2 ml-6">
@@ -200,7 +211,7 @@ export default function StartupDetailPage() {
             
             <button
               onClick={() => setIsBookmarked(!isBookmarked)}
-              className={clsx(
+              className={cn(
                 'btn-outline flex items-center',
                 isBookmarked && 'text-yellow-600 border-yellow-300 bg-yellow-50'
               )}
@@ -219,10 +230,21 @@ export default function StartupDetailPage() {
           </div>
         </div>
 
+        {/* Logo Upload for Owner */}
+        {user && startup.user_id === user.id && (
+          <div className="mb-6">
+            <LogoUpload
+              startupId={startup.id}
+              currentLogo={logoUrl}
+              onLogoUpdate={handleLogoUpdate}
+            />
+          </div>
+        )}
+
         {/* Failure reason highlight */}
-        <div className={clsx(
+        <div className={cn(
           'border rounded-lg p-4 mb-6',
-          failureReasonColors[startup.primary_failure_reason] || 'bg-gray-100 text-gray-800 border-gray-200'
+          getFailureReasonStyle(startup.primary_failure_reason)
         )}>
           <div className="flex items-center">
             <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
@@ -294,24 +316,36 @@ export default function StartupDetailPage() {
             <div className="card">
               <h2 className="text-xl font-bold text-gray-900 mb-4">📈 Peak Metrics</h2>
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-gray-600 leading-relaxed whitespace-pre-line">
-                  {startup.peak_metrics}
-                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {(() => {
+                    try {
+                      const metrics = typeof startup.peak_metrics === 'string' 
+                        ? JSON.parse(startup.peak_metrics) 
+                        : startup.peak_metrics;
+                      
+                      return Object.entries(metrics).map(([key, value]) => (
+                        <div key={key} className="text-center">
+                          <div className="text-2xl font-bold text-green-700">
+                            {typeof value === 'number' ? value.toLocaleString() : value}
+                          </div>
+                          <div className="text-sm text-gray-600 capitalize">
+                            {key.replace(/_/g, ' ')}
+                          </div>
+                        </div>
+                      ));
+                    } catch (e) {
+                      return (
+                        <p className="text-gray-600 leading-relaxed col-span-3">
+                          {startup.peak_metrics}
+                        </p>
+                      );
+                    }
+                  })()}
+                </div>
               </div>
             </div>
           )}
 
-          {/* Lessons Learned */}
-          {startup.lessons_learned && (
-            <div className="card">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">💡 Lessons Learned</h2>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-gray-600 leading-relaxed whitespace-pre-line">
-                  {startup.lessons_learned}
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* Advice for Founders */}
           {startup.advice_for_founders && (
@@ -379,7 +413,7 @@ export default function StartupDetailPage() {
                     to={`/profile/${startup.created_by_user_id}`}
                     className="font-medium text-primary-600 hover:text-primary-700"
                   >
-                    {startup.creator_name}
+                    {startup.creator_username}
                   </Link>
                 </div>
               )}

@@ -1,195 +1,209 @@
-const { body, param, query, validationResult } = require('express-validator');
+// Simple validation functions without express-validator dependency
+
+// Basic validation helpers
+const isEmail = (email) => /\S+@\S+\.\S+/.test(email);
+const isLength = (str, min, max) => str && str.length >= min && (!max || str.length <= max);
+const isIn = (value, array) => array.includes(value);
+const isInt = (value, options = {}) => {
+  const num = parseInt(value);
+  if (isNaN(num)) return false;
+  if (options.min && num < options.min) return false;
+  if (options.max && num > options.max) return false;
+  return true;
+};
+const isFloat = (value, options = {}) => {
+  const num = parseFloat(value);
+  if (isNaN(num)) return false;
+  if (options.min && num < options.min) return false;
+  if (options.max && num > options.max) return false;
+  return true;
+};
 
 // Handle validation errors
 const handleValidationErrors = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      error: 'Validation failed',
-      details: errors.array()
-    });
-  }
   next();
 };
 
 // User registration validation
-const validateUserRegistration = [
-  body('username')
-    .isLength({ min: 3, max: 50 })
-    .withMessage('Username must be between 3 and 50 characters')
-    .matches(/^[a-zA-Z0-9_]+$/)
-    .withMessage('Username can only contain letters, numbers, and underscores'),
+const validateUserRegistration = (req, res, next) => {
+  const { username, email, password, is_recruiter } = req.body;
   
-  body('email')
-    .isEmail()
-    .withMessage('Must be a valid email address')
-    .normalizeEmail(),
+  if (!isLength(username, 3, 50)) {
+    return res.status(400).json({ error: 'Username must be between 3 and 50 characters' });
+  }
   
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long'),
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores' });
+  }
   
-  body('is_recruiter')
-    .optional()
-    .isBoolean()
-    .withMessage('is_recruiter must be a boolean'),
+  if (!isEmail(email)) {
+    return res.status(400).json({ error: 'Must be a valid email address' });
+  }
   
-  handleValidationErrors
-];
+  if (!isLength(password, 6)) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+  }
+  
+  if (is_recruiter !== undefined && typeof is_recruiter !== 'boolean') {
+    return res.status(400).json({ error: 'is_recruiter must be a boolean' });
+  }
+  
+  next();
+};
 
 // User login validation
-const validateUserLogin = [
-  body('email')
-    .isEmail()
-    .withMessage('Must be a valid email address')
-    .normalizeEmail(),
+const validateUserLogin = (req, res, next) => {
+  const { email, password } = req.body;
   
-  body('password')
-    .notEmpty()
-    .withMessage('Password is required'),
+  if (!isEmail(email)) {
+    return res.status(400).json({ error: 'Must be a valid email address' });
+  }
   
-  handleValidationErrors
-];
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required' });
+  }
+  
+  next();
+};
 
 // Profile update validation
-const validateProfileUpdate = [
-  body('bio')
-    .optional()
-    .isLength({ max: 1000 })
-    .withMessage('Bio must be less than 1000 characters'),
+const validateProfileUpdate = (req, res, next) => {
+  const { bio, skills, linkedin_url, github_url, open_to_work, open_to_co_founding } = req.body;
   
-  body('skills')
-    .optional()
-    .isArray()
-    .withMessage('Skills must be an array'),
+  if (bio && bio.length > 1000) {
+    return res.status(400).json({ error: 'Bio must be less than 1000 characters' });
+  }
   
-  body('linkedin_url')
-    .optional()
-    .isURL()
-    .withMessage('LinkedIn URL must be valid'),
+  if (skills && !Array.isArray(skills)) {
+    return res.status(400).json({ error: 'Skills must be an array' });
+  }
   
-  body('github_url')
-    .optional()
-    .isURL()
-    .withMessage('GitHub URL must be valid'),
+  if (linkedin_url && !/^https?:\/\/.+/.test(linkedin_url)) {
+    return res.status(400).json({ error: 'LinkedIn URL must be valid' });
+  }
   
-  body('open_to_work')
-    .optional()
-    .isBoolean()
-    .withMessage('open_to_work must be a boolean'),
+  if (github_url && !/^https?:\/\/.+/.test(github_url)) {
+    return res.status(400).json({ error: 'GitHub URL must be valid' });
+  }
   
-  body('open_to_co_founding')
-    .optional()
-    .isBoolean()
-    .withMessage('open_to_co_founding must be a boolean'),
+  if (open_to_work !== undefined && typeof open_to_work !== 'boolean') {
+    return res.status(400).json({ error: 'open_to_work must be a boolean' });
+  }
   
-  handleValidationErrors
-];
+  if (open_to_co_founding !== undefined && typeof open_to_co_founding !== 'boolean') {
+    return res.status(400).json({ error: 'open_to_co_founding must be a boolean' });
+  }
+  
+  next();
+};
 
 // Startup creation validation
-const validateStartupCreation = [
-  body('name')
-    .isLength({ min: 1, max: 255 })
-    .withMessage('Startup name is required and must be less than 255 characters'),
+const validateStartupCreation = (req, res, next) => {
+  const { name, description, industry, primary_failure_reason, founded_year, died_year, stage_at_death, funding_amount_usd } = req.body;
   
-  body('description')
-    .optional()
-    .isLength({ max: 1000 })
-    .withMessage('Description must be less than 1000 characters'),
+  if (!isLength(name, 1, 255)) {
+    return res.status(400).json({ error: 'Startup name is required and must be less than 255 characters' });
+  }
   
-  body('industry')
-    .optional()
-    .isLength({ max: 100 })
-    .withMessage('Industry must be less than 100 characters'),
+  if (description && description.length > 1000) {
+    return res.status(400).json({ error: 'Description must be less than 1000 characters' });
+  }
   
-  body('primary_failure_reason')
-    .isIn([
-      'Ran out of funding',
-      'No Product-Market Fit',
-      'Poor Unit Economics',
-      'Co-founder Conflict',
-      'Technical Debt',
-      'Got outcompeted',
-      'Bad Timing',
-      'Legal/Regulatory Issues',
-      'Pivot Fatigue',
-      'Other'
-    ])
-    .withMessage('Invalid failure reason'),
+  if (industry && industry.length > 100) {
+    return res.status(400).json({ error: 'Industry must be less than 100 characters' });
+  }
   
-  body('founded_year')
-    .optional()
-    .isInt({ min: 1900, max: new Date().getFullYear() })
-    .withMessage('Founded year must be a valid year'),
+  const validFailureReasons = [
+    'Ran out of funding',
+    'No Product-Market Fit', 
+    'Poor Unit Economics',
+    'Co-founder Conflict',
+    'Technical Debt',
+    'Got outcompeted',
+    'Bad Timing',
+    'Legal/Regulatory Issues',
+    'Pivot Fatigue',
+    'Other'
+  ];
   
-  body('died_year')
-    .optional()
-    .isInt({ min: 1900, max: new Date().getFullYear() })
-    .withMessage('Died year must be a valid year'),
+  if (!isIn(primary_failure_reason, validFailureReasons)) {
+    return res.status(400).json({ error: 'Invalid failure reason' });
+  }
   
-  body('stage_at_death')
-    .optional()
-    .isIn(['Idea', 'Pre-seed', 'Seed', 'Series A', 'Series B+'])
-    .withMessage('Invalid stage at death'),
+  if (founded_year && !isInt(founded_year, { min: 1900, max: new Date().getFullYear() })) {
+    return res.status(400).json({ error: 'Founded year must be a valid year' });
+  }
   
-  body('funding_amount_usd')
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage('Funding amount must be a positive number'),
+  if (died_year && !isInt(died_year, { min: 1900, max: new Date().getFullYear() })) {
+    return res.status(400).json({ error: 'Died year must be a valid year' });
+  }
   
-  handleValidationErrors
-];
+  if (stage_at_death && !isIn(stage_at_death, ['Idea', 'Pre-seed', 'Seed', 'Series A', 'Series B+'])) {
+    return res.status(400).json({ error: 'Invalid stage at death' });
+  }
+  
+  if (funding_amount_usd && !isFloat(funding_amount_usd, { min: 0 })) {
+    return res.status(400).json({ error: 'Funding amount must be a positive number' });
+  }
+  
+  next();
+};
 
 // Comment validation
-const validateComment = [
-  body('content')
-    .isLength({ min: 1, max: 1000 })
-    .withMessage('Comment content is required and must be less than 1000 characters'),
+const validateComment = (req, res, next) => {
+  const { content } = req.body;
   
-  handleValidationErrors
-];
+  if (!isLength(content, 1, 1000)) {
+    return res.status(400).json({ error: 'Comment content is required and must be less than 1000 characters' });
+  }
+  
+  next();
+};
 
 // Team member validation
-const validateTeamMember = [
-  body('role_title')
-    .isLength({ min: 1, max: 255 })
-    .withMessage('Role title is required and must be less than 255 characters'),
+const validateTeamMember = (req, res, next) => {
+  const { role_title, tenure_start_year, tenure_end_year } = req.body;
   
-  body('tenure_start_year')
-    .optional()
-    .isInt({ min: 1900, max: new Date().getFullYear() })
-    .withMessage('Start year must be a valid year'),
+  if (!isLength(role_title, 1, 255)) {
+    return res.status(400).json({ error: 'Role title is required and must be less than 255 characters' });
+  }
   
-  body('tenure_end_year')
-    .optional()
-    .isInt({ min: 1900, max: new Date().getFullYear() })
-    .withMessage('End year must be a valid year'),
+  if (tenure_start_year && !isInt(tenure_start_year, { min: 1900, max: new Date().getFullYear() })) {
+    return res.status(400).json({ error: 'Start year must be a valid year' });
+  }
   
-  handleValidationErrors
-];
+  if (tenure_end_year && !isInt(tenure_end_year, { min: 1900, max: new Date().getFullYear() })) {
+    return res.status(400).json({ error: 'End year must be a valid year' });
+  }
+  
+  next();
+};
 
 // Connection request validation
-const validateConnectionRequest = [
-  body('message')
-    .optional()
-    .isLength({ max: 500 })
-    .withMessage('Message must be less than 500 characters'),
+const validateConnectionRequest = (req, res, next) => {
+  const { message } = req.body;
   
-  handleValidationErrors
-];
+  if (message && message.length > 500) {
+    return res.status(400).json({ error: 'Message must be less than 500 characters' });
+  }
+  
+  next();
+};
 
 // Message validation
-const validateMessage = [
-  body('connection_id')
-    .isInt({ min: 1 })
-    .withMessage('Valid connection ID is required'),
+const validateMessage = (req, res, next) => {
+  const { connection_id, content } = req.body;
   
-  body('content')
-    .isLength({ min: 1, max: 1000 })
-    .withMessage('Message content is required and must be less than 1000 characters'),
+  if (!isInt(connection_id, { min: 1 })) {
+    return res.status(400).json({ error: 'Valid connection ID is required' });
+  }
   
-  handleValidationErrors
-];
+  if (!isLength(content, 1, 1000)) {
+    return res.status(400).json({ error: 'Message content is required and must be less than 1000 characters' });
+  }
+  
+  next();
+};
 
 module.exports = {
   validateUserRegistration,

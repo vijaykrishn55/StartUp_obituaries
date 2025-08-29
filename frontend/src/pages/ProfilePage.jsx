@@ -13,22 +13,25 @@ import {
   UserPlusIcon,
   ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
-import { usersAPI, connectionsAPI, authAPI } from '../lib/api'
+import { usersAPI, connectionsAPI, authAPI, statsAPI } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { clsx } from 'clsx'
+import { cn } from '../lib/utils'
 
 export default function ProfilePage() {
   const { userId } = useParams()
   const { user: currentUser } = useAuthStore()
   const [profile, setProfile] = useState(null)
   const [startups, setStartups] = useState([])
+  const [userStats, setUserStats] = useState({
+    totalReactions: 0,
+    commentsMade: 0,
+    connectionsCount: 0
+  })
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState({})
-  const [connectionStatus, setConnectionStatus] = useState(null)
-
-  const isOwnProfile = !userId || (currentUser && currentUser.id === parseInt(userId))
+  const [connectionStatus, setConnectionStatus] = useState('none')
   const targetUserId = userId || currentUser?.id
 
   useEffect(() => {
@@ -39,31 +42,52 @@ export default function ProfilePage() {
 
   const loadProfile = async () => {
     try {
+      setLoading(true);
       let profileData;
       if (isOwnProfile) {
-        const response = await authAPI.getProfile();
-        profileData = response.data;
+        const [profileResponse, startupsResponse, statsResponse] = await Promise.all([
+          authAPI.getProfile(),
+          startupsAPI.getStartups({ userId: targetUserId }),
+          statsAPI.getUserStats(targetUserId)
+        ]);
+        profileData = profileResponse.data;
+        profileData.startups = startupsResponse.data.startups || startupsResponse.data || [];
+        setUserStats(statsResponse.data.stats);
       } else {
-        const response = await usersAPI.getUserProfile(targetUserId);
-        profileData = response.data;
-        // Handle nested response structure if needed
+        const [profileResponse, statsResponse] = await Promise.all([
+          usersAPI.getUserProfile(targetUserId),
+          statsAPI.getUserStats(targetUserId)
+        ]);
+        profileData = profileResponse.data;
         if (profileData.user) {
-          profileData = { ...profileData.user, startups: profileData.startups };
+          profileData = { ...profileData.user, startups: profileData.startups || [] };
+        }
+        setUserStats(statsResponse.data.stats);
+        
+        try {
+          const connectionsResponse = await connectionsAPI.getConnections();
+          const connections = connectionsResponse.data.connections || connectionsResponse.data || [];
+          const existingConnection = connections.find(conn => 
+            conn.sender_user_id === parseInt(targetUserId) || 
+            conn.receiver_user_id === parseInt(targetUserId)
+          );
+          if (existingConnection) {
+            setConnectionStatus(existingConnection.status === 'accepted' ? 'connected' : 'pending');
+          } else {
+            setConnectionStatus('none');
+          }
+        } catch (connError) {
+          console.error('Failed to load connection status:', connError);
+          setConnectionStatus('none');
         }
       }
-      
       setProfile(profileData);
       setStartups(profileData.startups || []);
-      
-      if (!isOwnProfile) {
-        // Check connection status
-        // This would need to be implemented in the API
-        setConnectionStatus('none') // none, pending, connected
-      }
     } catch (error) {
-      console.error('Failed to load profile:', error)
+      console.error('Failed to load profile:', error);
+      setProfile(null);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -80,10 +104,22 @@ export default function ProfilePage() {
 
   const handleConnect = async () => {
     try {
+      if (connectionStatus !== 'none') {
+        return; // Prevent duplicate requests
+      }
+      
+      setConnectionStatus('pending'); // Optimistic update
       await connectionsAPI.sendConnectionRequest(targetUserId, 'I would like to connect with you!')
-      setConnectionStatus('pending')
     } catch (error) {
       console.error('Failed to send connection request:', error)
+      setConnectionStatus('none'); // Revert on error
+      
+      // Show user-friendly error
+      if (error.response?.status === 409) {
+        alert(error.response.data.error || 'Connection request already exists');
+      } else {
+        alert('Failed to send connection request. Please try again.');
+      }
     }
   }
 
@@ -419,15 +455,15 @@ export default function ProfilePage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Total Reactions</span>
-                <span className="font-medium">{Math.floor(Math.random() * 100)}</span>
+                <span className="font-medium">{userStats.total_reactions_received}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Comments Made</span>
-                <span className="font-medium">{Math.floor(Math.random() * 50)}</span>
+                <span className="font-medium">{userStats.comments_made}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Connections</span>
-                <span className="font-medium">{Math.floor(Math.random() * 200)}</span>
+                <span className="font-medium">{userStats.connections_count}</span>
               </div>
             </div>
           </div>

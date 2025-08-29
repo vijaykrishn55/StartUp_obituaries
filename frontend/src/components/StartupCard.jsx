@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useState } from 'react'
 import { 
   CalendarIcon,
   BuildingOfficeIcon,
@@ -8,26 +9,24 @@ import {
   HeartIcon,
   ChatBubbleLeftIcon,
   ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon
+  ArrowTrendingDownIcon,
+  HandThumbUpIcon,
+  HandThumbDownIcon,
+  ArrowPathIcon,
+  EllipsisHorizontalIcon,
+  FlagIcon
 } from '@heroicons/react/24/outline'
 import { 
   HeartIcon as HeartSolidIcon,
-  ChatBubbleLeftIcon as ChatSolidIcon
+  ChatBubbleLeftIcon as ChatSolidIcon,
+  HandThumbUpIcon as HandThumbUpSolidIcon,
+  HandThumbDownIcon as HandThumbDownSolidIcon,
+  ArrowPathIcon as ArrowPathSolidIcon
 } from '@heroicons/react/24/solid'
-import { clsx } from 'clsx'
-
-const failureReasonColors = {
-  'Ran out of funding': 'bg-red-100 text-red-800',
-  'No Product-Market Fit': 'bg-orange-100 text-orange-800',
-  'Poor Unit Economics': 'bg-yellow-100 text-yellow-800',
-  'Co-founder Conflict': 'bg-purple-100 text-purple-800',
-  'Technical Debt': 'bg-blue-100 text-blue-800',
-  'Got outcompeted': 'bg-gray-100 text-gray-800',
-  'Bad Timing': 'bg-green-100 text-green-800',
-  'Legal/Regulatory Issues': 'bg-indigo-100 text-indigo-800',
-  'Pivot Fatigue': 'bg-pink-100 text-pink-800',
-  'Other': 'bg-gray-100 text-gray-800',
-}
+import { cn, getFailureReasonCardStyle, formatCurrency, formatDate } from '../lib/utils'
+import { reactionTypes } from '../lib/constants'
+import { reactionsAPI } from '../lib/api'
+import ReportModal from './ReportModal'
 
 const stageColors = {
   'Idea': 'bg-gray-100 text-gray-800',
@@ -37,20 +36,50 @@ const stageColors = {
   'Series B+': 'bg-red-100 text-red-800',
 }
 
-export default function StartupCard({ startup, featured = false }) {
-  const formatCurrency = (amount) => {
-    if (!amount) return 'Undisclosed'
-    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`
-    if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`
-    return `$${amount}`
-  }
+export default function StartupCard({ startup, featured = false, onReactionUpdate }) {
+  const [reactions, setReactions] = useState({
+    upvotes: startup.upvotes || startup.upvote_count || 0,
+    downvotes: startup.downvotes || startup.downvote_count || 0,
+    pivot: startup.pivot || startup.pivot_count || 0
+  })
+  const [userReaction, setUserReaction] = useState(null)
+  const [isReacting, setIsReacting] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+  const handleReaction = async (type, e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (isReacting) return
+    setIsReacting(true)
+    
+    try {
+      if (userReaction === type) {
+        await reactionsAPI.removeReaction(startup.id, type)
+        setUserReaction(null)
+        setReactions(prev => ({
+          ...prev,
+          [type === 'upvote' ? 'upvotes' : type === 'downvote' ? 'downvotes' : 'pivot']: 
+            prev[type === 'upvote' ? 'upvotes' : type === 'downvote' ? 'downvotes' : 'pivot'] - 1
+        }))
+      } else {
+        const response = await reactionsAPI.addReaction(startup.id, type)
+        setUserReaction(type)
+        setReactions(response.data)
+      }
+      
+      if (onReactionUpdate) {
+        onReactionUpdate(startup.id, {
+          upvotes: reactions.upvotes,
+          downvotes: reactions.downvotes,
+          pivot: reactions.pivot
+        })
+      }
+    } catch (error) {
+      console.error('Failed to update reaction:', error)
+    } finally {
+      setIsReacting(false)
+    }
   }
 
   const getYearsActive = () => {
@@ -63,7 +92,7 @@ export default function StartupCard({ startup, featured = false }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className={clsx(
+      className={cn(
         'card-hover transition-all duration-200',
         featured && 'border-primary-200 bg-gradient-to-br from-primary-50 to-white'
       )}
@@ -78,17 +107,32 @@ export default function StartupCard({ startup, featured = false }) {
       )}
 
       <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <Link 
-            to={`/startup/${startup.id}`}
-            className="block group"
-          >
-            <h3 className="text-xl font-bold text-gray-900 group-hover:text-primary-600 transition-colors">
-              {startup.name}
-            </h3>
-          </Link>
+        <div className="flex items-start space-x-3 flex-1">
+          {startup.logo_url ? (
+            <img
+              src={`http://localhost:3000${startup.logo_url}`}
+              alt={`${startup.name} logo`}
+              className="w-12 h-12 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+            />
+          ) : (
+            <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-pink-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold text-lg">
+                {startup.name?.charAt(0) || '?'}
+              </span>
+            </div>
+          )}
           
-          <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+          <div className="flex-1">
+            <Link 
+              to={`/startup/${startup.id}`}
+              className="block group"
+            >
+              <h3 className="text-xl font-bold text-gray-900 group-hover:text-primary-600 transition-colors">
+                {startup.name}
+              </h3>
+            </Link>
+            
+            <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
             <div className="flex items-center">
               <BuildingOfficeIcon className="h-4 w-4 mr-1" />
               {startup.industry || 'Unknown Industry'}
@@ -102,13 +146,14 @@ export default function StartupCard({ startup, featured = false }) {
             )}
             
             {startup.stage_at_death && (
-              <span className={clsx(
+              <span className={cn(
                 'px-2 py-1 rounded-full text-xs font-medium',
                 stageColors[startup.stage_at_death]
               )}>
                 {startup.stage_at_death}
               </span>
             )}
+            </div>
           </div>
         </div>
 
@@ -131,9 +176,9 @@ export default function StartupCard({ startup, featured = false }) {
 
       {/* Failure Reason */}
       <div className="mb-4">
-        <span className={clsx(
+        <span className={cn(
           'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium',
-          failureReasonColors[startup.primary_failure_reason] || 'bg-gray-100 text-gray-800'
+          getFailureReasonCardStyle(startup.primary_failure_reason)
         )}>
           💀 {startup.primary_failure_reason}
         </span>
@@ -153,19 +198,71 @@ export default function StartupCard({ startup, featured = false }) {
       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
         <div className="flex items-center space-x-4">
           {/* Reactions */}
-          <div className="flex items-center space-x-4 text-sm text-gray-500">
-            <div className="flex items-center space-x-1">
-              <span className="text-lg">💡</span>
-              <span>{startup.brilliant_count || 0}</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className="text-lg">🪦</span>
-              <span>{startup.rip_count || 0}</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <ChatBubbleLeftIcon className="h-4 w-4" />
-              <span>{startup.comment_count || 0}</span>
-            </div>
+          <div className="flex items-center space-x-3 text-sm">
+            {/* Upvote */}
+            <button
+              onClick={(e) => handleReaction('upvote', e)}
+              disabled={isReacting}
+              className={cn(
+                'flex items-center space-x-1 px-2 py-1 rounded-md transition-colors',
+                userReaction === 'upvote'
+                  ? 'bg-green-100 text-green-700'
+                  : 'text-gray-500 hover:bg-green-50 hover:text-green-600'
+              )}
+            >
+              {userReaction === 'upvote' ? (
+                <HandThumbUpSolidIcon className="h-4 w-4" />
+              ) : (
+                <HandThumbUpIcon className="h-4 w-4" />
+              )}
+              {reactions.upvotes > 0 && <span>{reactions.upvotes}</span>}
+            </button>
+
+            {/* Pivot */}
+            <button
+              onClick={(e) => handleReaction('pivot', e)}
+              disabled={isReacting}
+              className={cn(
+                'flex items-center space-x-1 px-2 py-1 rounded-md transition-colors',
+                userReaction === 'pivot'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600'
+              )}
+            >
+              {userReaction === 'pivot' ? (
+                <ArrowPathSolidIcon className="h-4 w-4" />
+              ) : (
+                <ArrowPathIcon className="h-4 w-4" />
+              )}
+              {reactions.pivot > 0 && <span>{reactions.pivot}</span>}
+            </button>
+
+            {/* Downvote */}
+            <button
+              onClick={(e) => handleReaction('downvote', e)}
+              disabled={isReacting}
+              className={cn(
+                'flex items-center space-x-1 px-2 py-1 rounded-md transition-colors',
+                userReaction === 'downvote'
+                  ? 'bg-red-100 text-red-700'
+                  : 'text-gray-500 hover:bg-red-50 hover:text-red-600'
+              )}
+            >
+              {userReaction === 'downvote' ? (
+                <HandThumbDownSolidIcon className="h-4 w-4" />
+              ) : (
+                <HandThumbDownIcon className="h-4 w-4" />
+              )}
+              {reactions.downvotes > 0 && <span>{reactions.downvotes}</span>}
+            </button>
+
+            {/* Comments */}
+            {startup.comment_count > 0 && (
+              <div className="flex items-center space-x-1 text-gray-500">
+                <ChatBubbleLeftIcon className="h-4 w-4" />
+                <span>{startup.comment_count}</span>
+              </div>
+            )}
           </div>
 
           {/* Team Size */}
@@ -177,10 +274,24 @@ export default function StartupCard({ startup, featured = false }) {
           )}
         </div>
 
-        <div className="flex items-center space-x-2 text-xs text-gray-500">
-          <span>By {startup.creator_name || 'Anonymous'}</span>
-          <span>•</span>
-          <span>{formatDate(startup.created_at)}</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2 text-xs text-gray-500">
+            <span>By {startup.creator_username || 'Anonymous'}</span>
+            <span>•</span>
+            <span>{formatDate(startup.created_at)}</span>
+          </div>
+          
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setShowReportModal(true)
+            }}
+            className="text-gray-400 hover:text-red-500 transition-colors p-1"
+            title="Report this startup"
+          >
+            <FlagIcon className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
@@ -191,6 +302,15 @@ export default function StartupCard({ startup, featured = false }) {
           Posted anonymously
         </div>
       )}
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetType="startup"
+        targetId={startup.id}
+        targetName={startup.name}
+      />
     </motion.div>
   )
 }

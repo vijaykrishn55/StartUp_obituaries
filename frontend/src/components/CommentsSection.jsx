@@ -10,7 +10,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { commentsAPI } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
-import { clsx } from 'clsx'
+import { cn, formatRelativeTime } from '../lib/utils'
 
 export default function CommentsSection({ startupId }) {
   const [comments, setComments] = useState([])
@@ -126,7 +126,7 @@ export default function CommentsSection({ startupId }) {
         key={comment.id}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={clsx(
+        className={cn(
           'border-l-2 border-gray-200 pl-4',
           depth > 0 && 'ml-6 mt-4'
         )}

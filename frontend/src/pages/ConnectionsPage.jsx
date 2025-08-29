@@ -13,7 +13,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { connectionsAPI, usersAPI } from '../lib/api'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { clsx } from 'clsx'
+import { cn } from '../lib/utils'
 
 const tabs = [
   { id: 'connections', name: 'My Connections', icon: UsersIcon },
@@ -40,15 +40,15 @@ export default function ConnectionsPage() {
       switch (activeTab) {
         case 'connections':
           const connectionsResponse = await connectionsAPI.getConnections()
-          setConnections(connectionsResponse.data.connections || [])
+          setConnections(connectionsResponse.data.connections || connectionsResponse.data || [])
           break
         case 'requests':
           const requestsResponse = await connectionsAPI.getConnectionRequests()
-          setRequests(requestsResponse.data.requests || [])
+          setRequests(requestsResponse.data.requests || requestsResponse.data || [])
           break
         case 'discover':
           const usersResponse = await usersAPI.getUsers()
-          setUsers(usersResponse.data.users || [])
+          setUsers(usersResponse.data.users || usersResponse.data || [])
           break
       }
     } catch (error) {
@@ -319,7 +319,7 @@ export default function ConnectionsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={clsx(
+                className={cn(
                   'py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2',
                   activeTab === tab.id
                     ? 'border-primary-500 text-primary-600'

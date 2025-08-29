@@ -224,6 +224,29 @@ export default function RegisterPage() {
               </div>
 
               <div>
+                <label htmlFor="user_role" className="block text-sm font-medium text-gray-700">
+                  I am a...
+                </label>
+                <div className="mt-1">
+                  <select
+                    {...register('user_role', {
+                      required: 'Please select your role',
+                    })}
+                    className="input"
+                  >
+                    <option value="">Select your role</option>
+                    <option value="student">Student</option>
+                    <option value="founder">Founder/Entrepreneur</option>
+                    <option value="investor">Investor</option>
+                    <option value="recruiter">Recruiter</option>
+                  </select>
+                  {errors.user_role && (
+                    <p className="mt-1 text-sm text-red-600">{errors.user_role.message}</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
                   Confirm password
                 </label>
