@@ -16,16 +16,22 @@ router.get("/", optionalAuth, async (req, res) => {
     let limit = parseInt(req.query.limit, 10);
     let offset = parseInt(req.query.offset, 10);
 
+    // Ensure valid numbers - if NaN, set defaults
     if (isNaN(limit) || limit <= 0) limit = 10;
     if (isNaN(offset) || offset < 0) offset = 0;
+    
+    // Ensure they are integers (not NaN)
+    limit = Number(limit);
+    offset = Number(offset);
 
     // Get startups first
-    const [startups] = await pool.query(
+    const [startups] = await pool.execute(
       `SELECT s.*, u.username as creator_username
       FROM Startups s
       JOIN Users u ON s.created_by_user_id = u.id
       ORDER BY s.created_at DESC
-      LIMIT ${limit} OFFSET ${offset}`
+      LIMIT ? OFFSET ?`,
+      [limit, offset]
     );
 
     // Get reaction counts for each startup
@@ -35,18 +41,20 @@ router.get("/", optionalAuth, async (req, res) => {
     if (startupIds.length > 0) {
       const placeholders = startupIds.map(() => '?').join(',');
       
-      const [reactions] = await pool.query(
+      const [reactions] = await pool.execute(
         `SELECT startup_id, type, COUNT(*) as count
          FROM Reactions 
-         WHERE startup_id IN (${startupIds.join(',')})
-         GROUP BY startup_id, type`
+         WHERE startup_id IN (${placeholders})
+         GROUP BY startup_id, type`,
+        startupIds
       );
 
-      const [comments] = await pool.query(
+      const [comments] = await pool.execute(
         `SELECT startup_id, COUNT(*) as count
          FROM Comments 
-         WHERE startup_id IN (${startupIds.join(',')})
-         GROUP BY startup_id`
+         WHERE startup_id IN (${placeholders})
+         GROUP BY startup_id`,
+        startupIds
       );
 
       // Add counts to startups
@@ -56,23 +64,23 @@ router.get("/", optionalAuth, async (req, res) => {
         
         return {
           ...startup,
-          upvotes: startupReactions.find(r => r.type === 'upvote')?.count || 0,
-          downvotes: startupReactions.find(r => r.type === 'downvote')?.count || 0,
-          pivot: startupReactions.find(r => r.type === 'pivot')?.count || 0,
+          upvote_count: startupReactions.find(r => r.type === 'upvote')?.count || 0,
+          downvote_count: startupReactions.find(r => r.type === 'downvote')?.count || 0,
+          pivot_count: startupReactions.find(r => r.type === 'pivot')?.count || 0,
           comment_count: startupComments?.count || 0
         };
       });
     } else {
       rows = startups.map(startup => ({
         ...startup,
-        upvotes: 0,
-        downvotes: 0,
-        pivot: 0,
+        upvote_count: 0,
+        downvote_count: 0,
+        pivot_count: 0,
         comment_count: 0
       }));
     }
 
-    res.json(rows);
+    res.json({ startups: rows });
   } catch (err) {
     console.error("Get startups error:", err);
     res.status(500).json({ error: "Failed to fetch startups" });
@@ -84,9 +92,9 @@ router.get("/featured", optionalAuth, async (req, res) => {
   try {
     const [rows] = await pool.execute(
       `SELECT s.*, u.username as creator_username,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'upvote'), 0) as upvotes,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'downvote'), 0) as downvotes,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'pivot'), 0) as pivot,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'upvote'), 0) as upvote_count,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'downvote'), 0) as downvote_count,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'pivot'), 0) as pivot_count,
              COALESCE((SELECT COUNT(*) FROM Comments c WHERE c.startup_id = s.id), 0) as comment_count
       FROM Startups s
       JOIN Users u ON s.created_by_user_id = u.id
@@ -96,7 +104,7 @@ router.get("/featured", optionalAuth, async (req, res) => {
       LIMIT 10`
     );
 
-    res.json(rows);
+    res.json({ startups: rows });
   } catch (err) {
     console.error("Get featured startups error:", err);
     res.status(500).json({ error: "Failed to fetch featured startups" });
@@ -110,9 +118,9 @@ router.get("/:id", optionalAuth, async (req, res) => {
 
     const [rows] = await pool.execute(
       `SELECT s.*, u.username as creator_username,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'upvote'), 0) as upvotes,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'downvote'), 0) as downvotes,
-             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'pivot'), 0) as pivot,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'upvote'), 0) as upvote_count,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'downvote'), 0) as downvote_count,
+             COALESCE((SELECT COUNT(*) FROM Reactions r WHERE r.startup_id = s.id AND r.type = 'pivot'), 0) as pivot_count,
              COALESCE((SELECT COUNT(*) FROM Comments c WHERE c.startup_id = s.id), 0) as comment_count
       FROM Startups s
       JOIN Users u ON s.created_by_user_id = u.id
@@ -387,7 +395,7 @@ router.post('/:id/logo', authenticateToken, upload.single('logo'), async (req, r
 
     // Check if startup exists and user owns it
     const [startups] = await pool.execute(
-      'SELECT user_id, logo_url FROM Startups WHERE id = ?',
+      'SELECT created_by_user_id, logo_url FROM Startups WHERE id = ?',
       [id]
     );
 
@@ -397,7 +405,7 @@ router.post('/:id/logo', authenticateToken, upload.single('logo'), async (req, r
       return res.status(404).json({ error: 'Startup not found' });
     }
 
-    if (startups[0].user_id !== req.user.id) {
+    if (startups[0].created_by_user_id !== req.user.id) {
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
       return res.status(403).json({ error: 'Not authorized to update this startup' });
@@ -440,7 +448,7 @@ router.delete('/:id/logo', authenticateToken, async (req, res) => {
 
     // Check if startup exists and user owns it
     const [startups] = await pool.execute(
-      'SELECT user_id, logo_url FROM Startups WHERE id = ?',
+      'SELECT created_by_user_id, logo_url FROM Startups WHERE id = ?',
       [id]
     );
 
@@ -448,7 +456,7 @@ router.delete('/:id/logo', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Startup not found' });
     }
 
-    if (startups[0].user_id !== req.user.id) {
+    if (startups[0].created_by_user_id !== req.user.id) {
       return res.status(403).json({ error: 'Not authorized to update this startup' });
     }
 

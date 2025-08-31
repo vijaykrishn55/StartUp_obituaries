@@ -14,7 +14,7 @@ router.get('/users/:userId/stats', authenticateToken, async (req, res) => {
       `SELECT COUNT(*) as total_reactions_received
        FROM Reactions r
        JOIN Startups s ON r.startup_id = s.id
-       WHERE s.user_id = ?`,
+       WHERE s.created_by_user_id = ?`,
       [userId]
     );
 
@@ -46,17 +46,17 @@ router.get('/users/:userId/stats', authenticateToken, async (req, res) => {
     const [startupStats] = await pool.execute(
       `SELECT COUNT(*) as startups_count
        FROM Startups
-       WHERE user_id = ?`,
+       WHERE created_by_user_id = ?`,
       [userId]
     );
 
     // Get reaction breakdown by type
     const [reactionBreakdown] = await pool.execute(
-      `SELECT r.reaction_type, COUNT(*) as count
+      `SELECT r.type as reaction_type, COUNT(*) as count
        FROM Reactions r
        JOIN Startups s ON r.startup_id = s.id
-       WHERE s.user_id = ?
-       GROUP BY r.reaction_type`,
+       WHERE s.created_by_user_id = ?
+       GROUP BY r.type`,
       [userId]
     );
 
@@ -65,7 +65,7 @@ router.get('/users/:userId/stats', authenticateToken, async (req, res) => {
       `SELECT s.id, s.name, COUNT(r.id) as reaction_count
        FROM Startups s
        LEFT JOIN Reactions r ON s.id = r.startup_id
-       WHERE s.user_id = ?
+       WHERE s.created_by_user_id = ?
        GROUP BY s.id, s.name
        ORDER BY reaction_count DESC
        LIMIT 1`,
@@ -115,7 +115,7 @@ router.get('/stats/leaderboard', async (req, res) => {
     const [topContributors] = await pool.execute(
       `SELECT u.id, u.username, u.first_name, u.last_name, COUNT(s.id) as startup_count
        FROM Users u
-       LEFT JOIN Startups s ON u.id = s.user_id
+       LEFT JOIN Startups s ON u.id = s.created_by_user_id
        GROUP BY u.id, u.username, u.first_name, u.last_name
        ORDER BY startup_count DESC
        LIMIT 10`

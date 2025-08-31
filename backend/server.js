@@ -25,7 +25,25 @@ const PORT = process.env.PORT || 3000;
 
 // Security middleware
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
 }));
 
 // CORS configuration
@@ -76,7 +94,7 @@ app.use('/api/startups', startupRoutes);
 app.use('/api', teamRoutes); // Team routes include both /startups/:id/team and /team/:id
 app.use('/api/startups', reactionRoutes); // Reaction routes for /startups/:id/reactions
 app.use('/api/comments', commentRoutes); // Comment routes for /startups/:id/comments and /comments/:id
-app.use('/api/connections', connectionRoutes); // Connection routes
+app.use('/api', connectionRoutes); // Connection routes
 app.use('/api/messages', messageRoutes); // Message routes
 app.use('/api/leaderboards', leaderboardRoutes); // Leaderboard routes
 app.use('/api/stats', require('./routes/stats')); // Stats routes

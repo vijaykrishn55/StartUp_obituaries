@@ -51,6 +51,7 @@ export const usersAPI = {
 // Startups API
 export const startupsAPI = {
   getStartups: (params = {}) => api.get('/startups', { params }),
+  getFeatured: () => api.get('/startups/featured'),
   getStartup: (id) => api.get(`/startups/${id}`),
   createStartup: (startupData) => api.post('/startups', startupData),
   updateStartup: (id, startupData) => api.put(`/startups/${id}`, startupData),

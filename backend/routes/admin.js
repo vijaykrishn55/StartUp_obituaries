@@ -70,7 +70,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
     // Get user statistics
     const userStats = await Promise.all(users.map(async (user) => {
       const [startupCount] = await pool.execute(
-        'SELECT COUNT(*) as count FROM Startups WHERE user_id = ?',
+        'SELECT COUNT(*) as count FROM Startups WHERE created_by_user_id = ?',
         [user.id]
       );
       
@@ -222,7 +222,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
              COUNT(DISTINCT c.id) as comment_count,
              COUNT(DISTINCT r.id) as reaction_count
       FROM Users u
-      LEFT JOIN Startups s ON u.id = s.user_id
+      LEFT JOIN Startups s ON u.id = s.created_by_user_id
       LEFT JOIN Comments c ON u.id = c.user_id
       LEFT JOIN Reactions r ON u.id = r.user_id
       GROUP BY u.id, u.username, u.first_name, u.last_name
@@ -257,7 +257,7 @@ router.get('/content', authenticateToken, requireAdmin, async (req, res) => {
                COUNT(r.id) as reaction_count,
                COUNT(c.id) as comment_count
         FROM Startups s
-        JOIN Users u ON s.user_id = u.id
+        JOIN Users u ON s.created_by_user_id = u.id
         LEFT JOIN Reactions r ON s.id = r.startup_id
         LEFT JOIN Comments c ON s.id = c.startup_id
         GROUP BY s.id, s.name, s.description, s.created_at, u.username, u.first_name, u.last_name

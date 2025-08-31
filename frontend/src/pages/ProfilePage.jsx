@@ -13,7 +13,7 @@ import {
   UserPlusIcon,
   ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
-import { usersAPI, connectionsAPI, authAPI, statsAPI } from '../lib/api'
+import { usersAPI, connectionsAPI, authAPI, statsAPI, startupsAPI } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { cn } from '../lib/utils'
@@ -33,6 +33,7 @@ export default function ProfilePage() {
   const [editData, setEditData] = useState({})
   const [connectionStatus, setConnectionStatus] = useState('none')
   const targetUserId = userId || currentUser?.id
+  const isOwnProfile = !userId || (currentUser && parseInt(userId) === currentUser.id)
 
   useEffect(() => {
     if (targetUserId) {

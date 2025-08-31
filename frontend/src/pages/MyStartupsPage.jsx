@@ -49,12 +49,6 @@ export default function MyStartupsPage() {
     }
   }
 
-  const formatCurrency = (amount) => {
-    if (!amount) return 'Undisclosed'
-    if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`
-    if (amount >= 1000) return `$${(amount / 1000).toFixed(0)}K`
-    return `$${amount}`
-  }
 
   const getYearsActive = (startup) => {
     if (!startup.founded_year || !startup.died_year) return null

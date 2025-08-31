@@ -151,7 +151,7 @@ router.get('/engagement', authenticateToken, async (req, res) => {
         COUNT(DISTINCT r.id) as reactions_given,
         COUNT(DISTINCT c.id) as comments_made
       FROM Users u
-      LEFT JOIN Startups s ON u.id = s.user_id
+      LEFT JOIN Startups s ON u.id = s.created_by_user_id
       LEFT JOIN Reactions r ON u.id = r.user_id
       LEFT JOIN Comments c ON u.id = c.user_id
       GROUP BY u.id, u.username
