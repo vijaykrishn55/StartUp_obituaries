@@ -12,6 +12,7 @@ import {
   BriefcaseIcon
 } from '@heroicons/react/24/outline'
 import { connectionsAPI, usersAPI } from '../lib/api'
+import { useAuthStore } from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { cn } from '../lib/utils'
 
@@ -23,6 +24,7 @@ const tabs = [
 
 export default function ConnectionsPage() {
   const navigate = useNavigate()
+  const { user: currentUser } = useAuthStore()
   const [activeTab, setActiveTab] = useState('connections')
   const [connections, setConnections] = useState([])
   const [requests, setRequests] = useState([])
@@ -40,7 +42,14 @@ export default function ConnectionsPage() {
       switch (activeTab) {
         case 'connections':
           const connectionsResponse = await connectionsAPI.getConnections()
-          setConnections(connectionsResponse.data.connections || connectionsResponse.data || [])
+          const allConnections = connectionsResponse.data.connections || connectionsResponse.data || []
+          // Filter out connections where both users are the same (shouldn't happen but safety check)
+          // and only show accepted connections
+          const validConnections = allConnections.filter(conn => 
+            conn.status === 'accepted' && 
+            conn.sender_user_id !== conn.receiver_user_id
+          )
+          setConnections(validConnections)
           break
         case 'requests':
           const requestsResponse = await connectionsAPI.getConnectionRequests()
@@ -63,8 +72,21 @@ export default function ConnectionsPage() {
       await connectionsAPI.sendConnectionRequest(userId, message)
       // Remove user from discover list or update UI
       setUsers(prev => prev.filter(user => user.id !== userId))
+      
+      // Show success message
+      alert('Connection request sent successfully!')
     } catch (error) {
       console.error('Failed to send connection request:', error)
+      
+      // Handle specific error cases
+      if (error.response?.status === 409) {
+        const errorMessage = error.response.data.error || 'Connection already exists'
+        alert(errorMessage)
+      } else if (error.response?.status === 400 && error.response.data.error === 'Cannot connect to yourself') {
+        alert('You cannot send a connection request to yourself')
+      } else {
+        alert('Failed to send connection request. Please try again.')
+      }
     }
   }
 
@@ -125,12 +147,20 @@ export default function ConnectionsPage() {
               <UserCircleIcon className="h-12 w-12 text-gray-400" />
               <div>
                 <h3 className="font-medium text-gray-900">
-                  {connection.user_name}
+                  {connection.sender_user_id === currentUser?.id 
+                    ? `${connection.receiver_first_name} ${connection.receiver_last_name}`
+                    : `${connection.sender_first_name} ${connection.sender_last_name}`}
                 </h3>
-                <p className="text-sm text-gray-600">{connection.user_bio}</p>
+                <p className="text-sm text-gray-600">
+                  {connection.sender_user_id === currentUser?.id 
+                    ? connection.receiver_bio 
+                    : connection.sender_bio}
+                </p>
                 <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
                   <span>Connected {new Date(connection.created_at).toLocaleDateString()}</span>
-                  {connection.user_open_to_work && (
+                  {((connection.sender_user_id === currentUser?.id 
+                      ? connection.receiver_open_to_work 
+                      : connection.sender_open_to_work)) && (
                     <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">
                       Open to work
                     </span>
@@ -148,7 +178,11 @@ export default function ConnectionsPage() {
                 Message
               </button>
               <button 
-                onClick={() => handleViewProfile(connection.user_id)}
+                onClick={() => handleViewProfile(
+                  connection.sender_user_id === currentUser?.id 
+                    ? connection.receiver_id 
+                    : connection.sender_id
+                )}
                 className="btn-outline"
               >
                 View Profile

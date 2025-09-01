@@ -43,10 +43,10 @@ Authorization: Bearer <token>
 - `DELETE /comments/:id` - Delete comment
 
 ### Connections
-- `GET /connections` - Get connections
-- `GET /connections/requests` - Get pending requests
-- `POST /connections/connect/:userId` - Send connection request
-- `PUT /connections/:requestId` - Accept/reject request
+- `GET /api/connections` - Get connections
+- `GET /api/connections/requests` - Get pending requests
+- `POST /api/connections/connect/:userId` - Send connection request
+- `PUT /api/connections/:requestId` - Accept/reject request
 
 ### Messages
 - `GET /messages/:connectionId` - Get messages

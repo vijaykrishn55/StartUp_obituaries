@@ -2,7 +2,11 @@
 
 // Basic validation helpers
 const isEmail = (email) => /\S+@\S+\.\S+/.test(email);
-const isLength = (str, min, max) => str && str.length >= min && (!max || str.length <= max);
+const isLength = (str, min, max) => {
+  if (str === null || str === undefined) return false;
+  if (typeof str !== 'string') return false;
+  return str.length >= min && (!max || str.length <= max);
+};
 const isIn = (value, array) => array.includes(value);
 const isInt = (value, options = {}) => {
   const num = parseInt(value);
@@ -68,32 +72,54 @@ const validateUserLogin = (req, res, next) => {
 
 // Profile update validation
 const validateProfileUpdate = (req, res, next) => {
-  const { bio, skills, linkedin_url, github_url, open_to_work, open_to_co_founding } = req.body;
+  console.log('Profile update validation - received data:', req.body);
+  const { first_name, last_name, bio, skills, linkedin_url, github_url, open_to_work, open_to_co_founding } = req.body;
   
-  if (bio && bio.length > 1000) {
+  if (first_name !== undefined && first_name !== null && first_name !== '' && !isLength(first_name, 1, 50)) {
+    console.log('Validation failed: first_name length check');
+    return res.status(400).json({ error: 'First name must be between 1 and 50 characters' });
+  }
+  
+  if (last_name !== undefined && last_name !== null && last_name !== '' && !isLength(last_name, 1, 50)) {
+    console.log('Validation failed: last_name length check');
+    return res.status(400).json({ error: 'Last name must be between 1 and 50 characters' });
+  }
+  
+  if (bio !== undefined && bio !== null && bio.length > 1000) {
+    console.log('Validation failed: bio length check');
     return res.status(400).json({ error: 'Bio must be less than 1000 characters' });
   }
   
-  if (skills && !Array.isArray(skills)) {
+  if (skills !== undefined && skills !== null && !Array.isArray(skills)) {
+    console.log('Validation failed: skills array check');
     return res.status(400).json({ error: 'Skills must be an array' });
   }
   
-  if (linkedin_url && !/^https?:\/\/.+/.test(linkedin_url)) {
+  if (linkedin_url !== undefined && linkedin_url !== null && linkedin_url !== '' && !/^https?:\/\/.+/.test(linkedin_url)) {
+    console.log('Validation failed: linkedin_url format check');
     return res.status(400).json({ error: 'LinkedIn URL must be valid' });
   }
   
-  if (github_url && !/^https?:\/\/.+/.test(github_url)) {
+  if (github_url !== undefined && github_url !== null && github_url !== '' && !/^https?:\/\/.+/.test(github_url)) {
+    console.log('Validation failed: github_url format check');
     return res.status(400).json({ error: 'GitHub URL must be valid' });
   }
   
-  if (open_to_work !== undefined && typeof open_to_work !== 'boolean') {
-    return res.status(400).json({ error: 'open_to_work must be a boolean' });
+  if (open_to_work !== undefined && open_to_work !== null) {
+    if (typeof open_to_work !== 'boolean' && open_to_work !== 'true' && open_to_work !== 'false' && open_to_work !== true && open_to_work !== false) {
+      console.log('Validation failed: open_to_work type check, received:', typeof open_to_work, open_to_work);
+      return res.status(400).json({ error: 'open_to_work must be a boolean' });
+    }
   }
   
-  if (open_to_co_founding !== undefined && typeof open_to_co_founding !== 'boolean') {
-    return res.status(400).json({ error: 'open_to_co_founding must be a boolean' });
+  if (open_to_co_founding !== undefined && open_to_co_founding !== null) {
+    if (typeof open_to_co_founding !== 'boolean' && open_to_co_founding !== 'true' && open_to_co_founding !== 'false' && open_to_co_founding !== true && open_to_co_founding !== false) {
+      console.log('Validation failed: open_to_co_founding type check, received:', typeof open_to_co_founding, open_to_co_founding);
+      return res.status(400).json({ error: 'open_to_co_founding must be a boolean' });
+    }
   }
   
+  console.log('Profile update validation passed');
   next();
 };
 

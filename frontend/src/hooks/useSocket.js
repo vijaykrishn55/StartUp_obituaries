@@ -49,33 +49,56 @@ const useSocket = () => {
     };
   }, []);
 
-  const joinConnection = (connectionId) => {
+  const joinConversation = (conversationId) => {
     if (socketRef.current) {
-      socketRef.current.emit('join_connection', connectionId);
+      socketRef.current.emit('join_conversation', conversationId);
     }
   };
 
-  const sendMessage = (connectionId, content) => {
+  const sendMessage = (conversationId, content, messageType = 'text', replyToId = null) => {
     if (socketRef.current && isConnected) {
-      socketRef.current.emit('send_message', { connectionId, content });
+      socketRef.current.emit('send_message', { 
+        conversationId, 
+        content, 
+        messageType, 
+        replyToId 
+      });
     }
   };
 
-  const markMessagesRead = (connectionId) => {
+  const editMessage = (messageId, content) => {
     if (socketRef.current && isConnected) {
-      socketRef.current.emit('mark_messages_read', connectionId);
+      socketRef.current.emit('edit_message', { messageId, content });
     }
   };
 
-  const startTyping = (connectionId) => {
+  const deleteMessage = (messageId) => {
     if (socketRef.current && isConnected) {
-      socketRef.current.emit('typing_start', connectionId);
+      socketRef.current.emit('delete_message', { messageId });
     }
   };
 
-  const stopTyping = (connectionId) => {
+  const addReaction = (messageId, reaction) => {
     if (socketRef.current && isConnected) {
-      socketRef.current.emit('typing_stop', connectionId);
+      socketRef.current.emit('add_reaction', { messageId, reaction });
+    }
+  };
+
+  const markMessagesRead = (conversationId) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('mark_messages_read', { conversationId });
+    }
+  };
+
+  const startTyping = (conversationId) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('typing_start', { conversationId });
+    }
+  };
+
+  const stopTyping = (conversationId) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('typing_stop', { conversationId });
     }
   };
 
@@ -93,17 +116,31 @@ const useSocket = () => {
     }
   };
 
+  const onMessageEdited = (callback) => {
+    if (socketRef.current) {
+      socketRef.current.on('message_edited', callback);
+      return () => socketRef.current.off('message_edited', callback);
+    }
+  };
+
+  const onMessageDeleted = (callback) => {
+    if (socketRef.current) {
+      socketRef.current.on('message_deleted', callback);
+      return () => socketRef.current.off('message_deleted', callback);
+    }
+  };
+
+  const onMessageReactionUpdated = (callback) => {
+    if (socketRef.current) {
+      socketRef.current.on('message_reaction_updated', callback);
+      return () => socketRef.current.off('message_reaction_updated', callback);
+    }
+  };
+
   const onUserTyping = (callback) => {
     if (socketRef.current) {
       socketRef.current.on('user_typing', callback);
       return () => socketRef.current.off('user_typing', callback);
-    }
-  };
-
-  const onUserStoppedTyping = (callback) => {
-    if (socketRef.current) {
-      socketRef.current.on('user_stopped_typing', callback);
-      return () => socketRef.current.off('user_stopped_typing', callback);
     }
   };
 
@@ -114,20 +151,33 @@ const useSocket = () => {
     }
   };
 
+  const onUserJoinedConversation = (callback) => {
+    if (socketRef.current) {
+      socketRef.current.on('user_joined_conversation', callback);
+      return () => socketRef.current.off('user_joined_conversation', callback);
+    }
+  };
+
   return {
     socket: socketRef.current,
     isConnected,
     error,
-    joinConnection,
+    joinConversation,
     sendMessage,
+    editMessage,
+    deleteMessage,
+    addReaction,
     markMessagesRead,
     startTyping,
     stopTyping,
     onNewMessage,
     onMessageNotification,
+    onMessageEdited,
+    onMessageDeleted,
+    onMessageReactionUpdated,
     onUserTyping,
-    onUserStoppedTyping,
-    onMessagesRead
+    onMessagesRead,
+    onUserJoinedConversation
   };
 };
 

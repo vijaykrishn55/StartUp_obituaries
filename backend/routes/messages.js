@@ -5,56 +5,84 @@ const { validateMessage } = require('../utils/validation');
 
 const router = express.Router();
 
-// GET /api/messages/:connectionId - Get message history for a connection
-router.get('/messages/:connectionId', authenticateToken, async (req, res) => {
+// GET /api/messages/:conversationId - Get message history for a conversation
+router.get('/:conversationId', authenticateToken, async (req, res) => {
   try {
-    const { connectionId } = req.params;
+    const { conversationId } = req.params;
     const { limit = 50, offset = 0 } = req.query;
 
-    // Check if connection exists and user is part of it
-    const [connections] = await pool.execute(
-      `SELECT id, sender_user_id, receiver_user_id, status 
-       FROM Connections 
-       WHERE id = ? AND (sender_user_id = ? OR receiver_user_id = ?) AND status = 'accepted'`,
-      [connectionId, req.user.id, req.user.id]
+    console.log(`Fetching messages for conversationId: ${conversationId}, userId: ${req.user.id}`);
+
+    // Check if conversation exists and user has access through connection
+    const [conversations] = await pool.execute(
+      `SELECT c.id, c.connection_id, conn.sender_user_id, conn.receiver_user_id, conn.status 
+       FROM conversations c
+       JOIN connections conn ON c.connection_id = conn.id
+       WHERE c.id = ? AND (conn.sender_user_id = ? OR conn.receiver_user_id = ?) AND conn.status = 'accepted'`,
+      [conversationId, req.user.id, req.user.id]
     );
 
-    if (connections.length === 0) {
-      return res.status(404).json({ error: 'Connection not found or not accepted' });
+    console.log(`Found conversations:`, conversations);
+
+    if (conversations.length === 0) {
+      console.log(`No accessible conversation found for conversationId: ${conversationId}, userId: ${req.user.id}`);
+      return res.status(404).json({ error: 'Conversation not found or access denied' });
     }
 
-    // Get messages
+    // Get messages with sender info and read status
     const [messages] = await pool.execute(
-      `SELECT m.id, m.content, m.is_read, m.created_at, m.sender_user_id,
-              u.id as sender_id, u.username, u.first_name, u.last_name
-       FROM Messages m
-       JOIN Users u ON m.sender_user_id = u.id
-       WHERE m.connection_id = ?
-       ORDER BY m.created_at DESC
+      `SELECT m.id, m.content, m.message_type, m.reply_to_id, m.created_at, m.edited_at, 
+              m.sender_id as sender_user_id, m.sender_id,
+              u.id as sender_id_user, u.username, u.first_name, u.last_name,
+              (SELECT COUNT(*) FROM messagereadstatus mrs WHERE mrs.message_id = m.id AND mrs.user_id = ?) as is_read_by_user,
+              rm.content as reply_content, ru.first_name as reply_sender_name
+       FROM messages m
+       JOIN users u ON m.sender_id = u.id
+       LEFT JOIN messages rm ON m.reply_to_id = rm.id
+       LEFT JOIN users ru ON rm.sender_id = ru.id
+       WHERE m.conversation_id = ? AND m.deleted_at IS NULL
+       ORDER BY m.created_at ASC
        LIMIT ? OFFSET ?`,
-      [connectionId, parseInt(limit), parseInt(offset)]
+      [req.user.id, conversationId, parseInt(limit), parseInt(offset)]
     );
 
-    // Mark messages as read if they were sent to the current user
-    const connection = connections[0];
-    const otherUserId = connection.sender_user_id === req.user.id ? 
-                       connection.receiver_user_id : connection.sender_user_id;
+    // Mark unread messages as read for current user
+    const unreadMessageIds = messages
+      .filter(msg => msg.sender_id !== req.user.id && !msg.is_read_by_user)
+      .map(msg => msg.id);
 
-    await pool.execute(
-      `UPDATE Messages 
-       SET is_read = TRUE 
-       WHERE connection_id = ? AND sender_user_id = ? AND is_read = FALSE`,
-      [connectionId, otherUserId]
-    );
+    if (unreadMessageIds.length > 0) {
+      const placeholders = unreadMessageIds.map(() => '(?, ?)').join(',');
+      const values = unreadMessageIds.flatMap(id => [id, req.user.id]);
+      
+      await pool.execute(
+        `INSERT IGNORE INTO messagereadstatus (message_id, user_id) VALUES ${placeholders}`,
+        values
+      );
+    }
 
     // Get total count
     const [countResult] = await pool.execute(
-      'SELECT COUNT(*) as total FROM Messages WHERE connection_id = ?',
-      [connectionId]
+      'SELECT COUNT(*) as total FROM messages WHERE conversation_id = ? AND deleted_at IS NULL',
+      [conversationId]
     );
 
+    // Get message reactions for each message
+    for (let message of messages) {
+      const [reactions] = await pool.execute(
+        `SELECT reaction, COUNT(*) as count,
+                GROUP_CONCAT(CONCAT(u.first_name, ' ', u.last_name) SEPARATOR ', ') as users
+         FROM messagereactions mr
+         JOIN users u ON mr.user_id = u.id
+         WHERE mr.message_id = ?
+         GROUP BY reaction`,
+        [message.id]
+      );
+      message.reactions = reactions;
+    }
+
     res.json({
-      messages: messages.reverse(), // Return in chronological order
+      messages: messages, // Keep chronological order
       pagination: {
         total: countResult[0].total,
         limit: parseInt(limit),
@@ -69,48 +97,166 @@ router.get('/messages/:connectionId', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/messages - Send a message
-router.post('/messages', authenticateToken, validateMessage, async (req, res) => {
+// PUT /api/messages/:messageId - Edit a message
+router.put('/:messageId', authenticateToken, async (req, res) => {
   try {
-    const { connection_id, content } = req.body;
+    const { messageId } = req.params;
+    const { content } = req.body;
 
-    // Check if connection exists and user is part of it
-    const [connections] = await pool.execute(
-      `SELECT id, sender_user_id, receiver_user_id, status 
-       FROM Connections 
-       WHERE id = ? AND (sender_user_id = ? OR receiver_user_id = ?) AND status = 'accepted'`,
-      [connection_id, req.user.id, req.user.id]
-    );
-
-    if (connections.length === 0) {
-      return res.status(404).json({ error: 'Connection not found or not accepted' });
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Content is required' });
     }
 
-    // Send message
-    const [result] = await pool.execute(
-      'INSERT INTO Messages (connection_id, sender_user_id, content) VALUES (?, ?, ?)',
-      [connection_id, req.user.id, content]
+    // Check if user owns this message
+    const [messages] = await pool.execute(
+      'SELECT id, conversation_id FROM messages WHERE id = ? AND sender_id = ? AND deleted_at IS NULL',
+      [messageId, req.user.id]
     );
 
-    // Get the created message with sender info
-    const [newMessage] = await pool.execute(
-      `SELECT m.id, m.content, m.is_read, m.created_at,
-              u.id as sender_id, u.username, u.first_name, u.last_name
-       FROM Messages m
-       JOIN Users u ON m.sender_user_id = u.id
-       WHERE m.id = ?`,
-      [result.insertId]
+    if (messages.length === 0) {
+      return res.status(404).json({ error: 'Message not found or access denied' });
+    }
+
+    // Update the message
+    await pool.execute(
+      'UPDATE messages SET content = ?, edited_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [content.trim(), messageId]
     );
 
-    res.status(201).json({
-      message: 'Message sent successfully',
-      messageData: newMessage[0]
+    res.json({ message: 'Message updated successfully' });
+
+  } catch (error) {
+    console.error('Edit message error:', error);
+    res.status(500).json({ error: 'Failed to edit message' });
+  }
+});
+
+// DELETE /api/messages/:messageId - Soft delete a message
+router.delete('/:messageId', authenticateToken, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+
+    // Check if user owns this message
+    const [messages] = await pool.execute(
+      'SELECT id, conversation_id FROM messages WHERE id = ? AND sender_id = ? AND deleted_at IS NULL',
+      [messageId, req.user.id]
+    );
+
+    if (messages.length === 0) {
+      return res.status(404).json({ error: 'Message not found or access denied' });
+    }
+
+    // Soft delete the message
+    await pool.execute(
+      'UPDATE messages SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [messageId]
+    );
+
+    res.json({ message: 'Message deleted successfully' });
+
+  } catch (error) {
+    console.error('Delete message error:', error);
+    res.status(500).json({ error: 'Failed to delete message' });
+  }
+});
+
+// POST /api/messages/:messageId/reactions - Add reaction to message
+router.post('/:messageId/reactions', authenticateToken, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { reaction } = req.body;
+
+    if (!reaction) {
+      return res.status(400).json({ error: 'Reaction is required' });
+    }
+
+    // Check if message exists and user has access
+    const [messages] = await pool.execute(
+      `SELECT m.id, m.sender_id FROM messages m
+       JOIN conversations c ON m.conversation_id = c.id
+       JOIN connections conn ON c.connection_id = conn.id
+       WHERE m.id = ? AND (conn.sender_user_id = ? OR conn.receiver_user_id = ?) 
+       AND conn.status = 'accepted' AND m.deleted_at IS NULL`,
+      [messageId, req.user.id, req.user.id]
+    );
+
+    if (messages.length === 0) {
+      return res.status(404).json({ error: 'Message not found or access denied' });
+    }
+
+    // Check if user is trying to react to their own message
+    if (messages[0].sender_id === req.user.id) {
+      return res.status(403).json({ error: 'You cannot react to your own messages' });
+    }
+
+    // Check if user already reacted with this emoji
+    const [existingReactions] = await pool.execute(
+      'SELECT id FROM messagereactions WHERE message_id = ? AND user_id = ? AND reaction = ?',
+      [messageId, req.user.id, reaction]
+    );
+
+    if (existingReactions.length > 0) {
+      return res.status(409).json({ error: 'You have already reacted with this emoji' });
+    }
+
+    // Add reaction (no ON DUPLICATE KEY UPDATE - prevent overriding)
+    await pool.execute(
+      'INSERT INTO messagereactions (message_id, user_id, reaction) VALUES (?, ?, ?)',
+      [messageId, req.user.id, reaction]
+    );
+
+    // Get updated reactions for this message
+    const [reactions] = await pool.execute(
+      `SELECT reaction, COUNT(*) as count,
+              GROUP_CONCAT(CONCAT(u.first_name, ' ', u.last_name) SEPARATOR ', ') as users
+       FROM messagereactions mr
+       JOIN users u ON mr.user_id = u.id
+       WHERE mr.message_id = ?
+       GROUP BY reaction`,
+      [messageId]
+    );
+
+    res.json({ 
+      message: 'Reaction added successfully',
+      reactions
     });
 
   } catch (error) {
-    console.error('Send message error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Add reaction error:', error);
+    res.status(500).json({ error: 'Failed to add reaction' });
   }
+});
+
+// DELETE /api/messages/:messageId/reactions/:reaction - Remove reaction
+router.delete('/:messageId/reactions/:reaction', authenticateToken, async (req, res) => {
+  try {
+    const { messageId, reaction } = req.params;
+
+    // Remove reaction
+    const [result] = await pool.execute(
+      'DELETE FROM messagereactions WHERE message_id = ? AND user_id = ? AND reaction = ?',
+      [messageId, req.user.id, reaction]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Reaction not found' });
+    }
+
+    res.json({ message: 'Reaction removed successfully' });
+
+  } catch (error) {
+    console.error('Remove reaction error:', error);
+    res.status(500).json({ error: 'Failed to remove reaction' });
+  }
+});
+
+// POST /api/messages - Deprecated: Use Socket.IO for sending messages
+router.post('/', authenticateToken, (req, res) => {
+  res.status(400).json({ 
+    error: 'Message sending via REST API is deprecated. Use Socket.IO real-time messaging instead.',
+    socketEvent: 'send_message',
+    socketData: { conversationId: 'number', content: 'string' }
+  });
 });
 
 module.exports = router;

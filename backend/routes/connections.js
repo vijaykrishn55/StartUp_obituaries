@@ -6,7 +6,7 @@ const { validateConnectionRequest } = require('../utils/validation');
 const router = express.Router();
 
 // GET /api/connections - Get all connections (accepted and pending)
-router.get('/connections', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.execute(
       `SELECT 
@@ -15,16 +15,25 @@ router.get('/connections', authenticateToken, async (req, res) => {
           c.sender_user_id,
           c.receiver_user_id,
           c.created_at,
-          CASE WHEN c.sender_user_id = ? THEN receiver.id ELSE sender.id END AS user_id,
-          CASE WHEN c.sender_user_id = ? THEN receiver.username ELSE sender.username END AS user_name,
-          CASE WHEN c.sender_user_id = ? THEN receiver.bio ELSE sender.bio END AS user_bio,
-          CASE WHEN c.sender_user_id = ? THEN receiver.open_to_work ELSE sender.open_to_work END AS user_open_to_work
+          c.message,
+          sender.id as sender_id,
+          sender.username as sender_username,
+          sender.first_name as sender_first_name,
+          sender.last_name as sender_last_name,
+          sender.bio as sender_bio,
+          sender.open_to_work as sender_open_to_work,
+          receiver.id as receiver_id,
+          receiver.username as receiver_username,
+          receiver.first_name as receiver_first_name,
+          receiver.last_name as receiver_last_name,
+          receiver.bio as receiver_bio,
+          receiver.open_to_work as receiver_open_to_work
        FROM Connections c
        JOIN Users sender ON c.sender_user_id = sender.id
        JOIN Users receiver ON c.receiver_user_id = receiver.id
        WHERE (c.sender_user_id = ? OR c.receiver_user_id = ?)
        ORDER BY c.created_at DESC`,
-      [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]
+      [req.user.id, req.user.id]
     );
 
     res.json({ connections: rows });
@@ -36,7 +45,7 @@ router.get('/connections', authenticateToken, async (req, res) => {
 });
 
 // GET /api/connections/requests - Get pending connection requests (incoming and outgoing)
-router.get('/connections/requests', authenticateToken, async (req, res) => {
+router.get('/requests', authenticateToken, async (req, res) => {
   try {
     const [incomingRequests] = await pool.execute(
       `SELECT 
@@ -79,7 +88,7 @@ router.get('/connections/requests', authenticateToken, async (req, res) => {
 });
 
 // POST /api/connections/connect/:userId - Send connection request
-router.post('/connections/connect/:userId', authenticateToken, validateConnectionRequest, async (req, res) => {
+router.post('/connect/:userId', authenticateToken, validateConnectionRequest, async (req, res) => {
   try {
     const { userId } = req.params;
     const { message } = req.body;
@@ -136,7 +145,7 @@ router.post('/connections/connect/:userId', authenticateToken, validateConnectio
 });
 
 // PUT /api/connections/:requestId - Accept or reject connection request
-router.put('/connections/:requestId', authenticateToken, async (req, res) => {
+router.put('/:requestId', authenticateToken, async (req, res) => {
   try {
     const { requestId } = req.params;
     const { status } = req.body;

@@ -24,7 +24,7 @@ const initializeSocket = (server) => {
       
       // Get user info from database
       const [users] = await pool.execute(
-        'SELECT id, username, user_role FROM Users WHERE id = ?',
+        'SELECT id, username, first_name, last_name, user_role FROM users WHERE id = ?',
         [decoded.userId]
       );
 
@@ -34,89 +34,166 @@ const initializeSocket = (server) => {
 
       socket.userId = decoded.userId;
       socket.user = users[0];
+      
+      // Update user status to online
+      await pool.execute(
+        'UPDATE users SET status = ?, last_seen = CURRENT_TIMESTAMP WHERE id = ?',
+        ['online', socket.userId]
+      );
+      
       next();
     } catch (error) {
       next(new Error('Authentication error'));
     }
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log(`User ${socket.user.username} connected`);
 
     // Join user to their personal room
     socket.join(`user_${socket.userId}`);
 
-    // Handle joining connection rooms for messaging
-    socket.on('join_connection', async (connectionId) => {
+    // Get user's conversations and join conversation rooms
+    try {
+      const [conversations] = await pool.execute(
+        `SELECT DISTINCT c.id 
+         FROM conversations c
+         JOIN connections conn ON c.connection_id = conn.id
+         WHERE (conn.sender_user_id = ? OR conn.receiver_user_id = ?) 
+         AND conn.status = 'accepted'`,
+        [socket.userId, socket.userId]
+      );
+
+      // Join conversation rooms
+      conversations.forEach(conversation => {
+        socket.join(`conversation_${conversation.id}`);
+      });
+
+      console.log(`User ${socket.user.username} joined ${conversations.length} conversation rooms`);
+    } catch (error) {
+      console.error('Error setting up conversation rooms:', error);
+    }
+
+    // Handle joining a specific conversation
+    socket.on('join_conversation', async (conversationId) => {
       try {
-        // Verify user is part of this connection
-        const [connections] = await pool.execute(
-          `SELECT id FROM Connections 
-           WHERE id = ? AND (sender_user_id = ? OR receiver_user_id = ?) AND status = 'accepted'`,
-          [connectionId, socket.userId, socket.userId]
+        // Verify user has access to this conversation
+        const [conversations] = await pool.execute(
+          `SELECT c.id FROM conversations c
+           JOIN connections conn ON c.connection_id = conn.id
+           WHERE c.id = ? AND (conn.sender_user_id = ? OR conn.receiver_user_id = ?) 
+           AND conn.status = 'accepted'`,
+          [conversationId, socket.userId, socket.userId]
         );
 
-        if (connections.length > 0) {
-          socket.join(`connection_${connectionId}`);
-          console.log(`User ${socket.user.username} joined connection ${connectionId}`);
+        if (conversations.length > 0) {
+          socket.join(`conversation_${conversationId}`);
+          console.log(`User ${socket.user.username} joined conversation ${conversationId}`);
+          
+          // Notify others in conversation about user joining
+          socket.to(`conversation_${conversationId}`).emit('user_joined_conversation', {
+            userId: socket.userId,
+            username: socket.user.username,
+            conversationId
+          });
+        } else {
+          socket.emit('error', { message: 'Access denied to conversation' });
         }
       } catch (error) {
-        console.error('Error joining connection:', error);
+        console.error('Error joining conversation:', error);
+        socket.emit('error', { message: 'Failed to join conversation' });
       }
     });
 
     // Handle sending messages
     socket.on('send_message', async (data) => {
       try {
-        const { connectionId, content } = data;
+        const { conversationId, content, messageType = 'text', replyToId } = data;
 
-        // Verify user is part of this connection
-        const [connections] = await pool.execute(
-          `SELECT sender_user_id, receiver_user_id FROM Connections 
-           WHERE id = ? AND (sender_user_id = ? OR receiver_user_id = ?) AND status = 'accepted'`,
-          [connectionId, socket.userId, socket.userId]
-        );
-
-        if (connections.length === 0) {
-          socket.emit('error', { message: 'Unauthorized to send message in this connection' });
+        if (!conversationId || !content?.trim()) {
+          socket.emit('error', { message: 'Conversation ID and content are required' });
           return;
         }
 
-        // Save message to database
-        const [result] = await pool.execute(
-          'INSERT INTO Messages (connection_id, sender_user_id, content) VALUES (?, ?, ?)',
-          [connectionId, socket.userId, content]
+        // Verify user has access to this conversation
+        const [conversations] = await pool.execute(
+          `SELECT c.id, c.connection_id FROM conversations c
+           JOIN connections conn ON c.connection_id = conn.id
+           WHERE c.id = ? AND (conn.sender_user_id = ? OR conn.receiver_user_id = ?) 
+           AND conn.status = 'accepted'`,
+          [conversationId, socket.userId, socket.userId]
         );
 
-        // Get the saved message with user info
+        if (conversations.length === 0) {
+          socket.emit('error', { message: 'Access denied to conversation' });
+          return;
+        }
+
+        // Validate reply-to message if provided
+        if (replyToId) {
+          const [replymessages] = await pool.execute(
+            'SELECT id FROM messages WHERE id = ? AND conversation_id = ? AND deleted_at IS NULL',
+            [replyToId, conversationId]
+          );
+
+          if (replymessages.length === 0) {
+            socket.emit('error', { message: 'Reply-to message not found' });
+            return;
+          }
+        }
+
+        // Insert message into database
+        const [result] = await pool.execute(
+          'INSERT INTO messages (conversation_id, sender_id, content, message_type, reply_to_id) VALUES (?, ?, ?, ?, ?)',
+          [conversationId, socket.userId, content.trim(), messageType, replyToId]
+        );
+
+        // Update conversation last_message_at
+        await pool.execute(
+          'UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [conversationId]
+        );
+
+        // Get the created message with sender info
         const [messages] = await pool.execute(
-          `SELECT m.id, m.content, m.created_at, m.is_read,
-                  u.username, u.first_name, u.last_name
-           FROM Messages m
-           JOIN Users u ON m.sender_user_id = u.id
+          `SELECT m.id, m.content, m.message_type, m.reply_to_id, m.created_at, m.sender_id,
+                  u.username, u.first_name, u.last_name,
+                  rm.content as reply_content, ru.first_name as reply_sender_name
+           FROM messages m
+           JOIN users u ON m.sender_id = u.id
+           LEFT JOIN messages rm ON m.reply_to_id = rm.id
+           LEFT JOIN users ru ON rm.sender_id = ru.id
            WHERE m.id = ?`,
           [result.insertId]
         );
 
-        const message = {
-          ...messages[0],
-          sender_user_id: socket.userId
-        };
+        const message = messages[0];
 
-        // Emit to all users in the connection room
-        io.to(`connection_${connectionId}`).emit('new_message', message);
-
-        // Send notification to the other user
-        const connection = connections[0];
-        const otherUserId = connection.sender_user_id === socket.userId 
-          ? connection.receiver_user_id 
-          : connection.sender_user_id;
-
-        io.to(`user_${otherUserId}`).emit('message_notification', {
-          connectionId,
-          sender: socket.user.username,
-          preview: content.substring(0, 50) + (content.length > 50 ? '...' : '')
+        // Emit to all users in the conversation
+        io.to(`conversation_${conversationId}`).emit('new_message', {
+          message,
+          conversationId
         });
+
+        // Send notification to other user(s) not currently in the conversation
+        const conversation = conversations[0];
+        const [connectionInfo] = await pool.execute(
+          'SELECT sender_user_id, receiver_user_id FROM connections WHERE id = ?',
+          [conversation.connection_id]
+        );
+
+        if (connectionInfo.length > 0) {
+          const otherUserId = connectionInfo[0].sender_user_id === socket.userId 
+            ? connectionInfo[0].receiver_user_id 
+            : connectionInfo[0].sender_user_id;
+
+          io.to(`user_${otherUserId}`).emit('message_notification', {
+            conversationId,
+            sender: `${socket.user.first_name} ${socket.user.last_name}`,
+            preview: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
+            messageId: message.id
+          });
+        }
 
       } catch (error) {
         console.error('Error sending message:', error);
@@ -124,40 +201,212 @@ const initializeSocket = (server) => {
       }
     });
 
+    // Handle message editing
+    socket.on('edit_message', async (data) => {
+      try {
+        const { messageId, content } = data;
+
+        if (!content?.trim()) {
+          socket.emit('error', { message: 'Content is required' });
+          return;
+        }
+
+        // Check if user owns the message
+        const [messages] = await pool.execute(
+          'SELECT conversation_id FROM messages WHERE id = ? AND sender_id = ? AND deleted_at IS NULL',
+          [messageId, socket.userId]
+        );
+
+        if (messages.length === 0) {
+          socket.emit('error', { message: 'Message not found or access denied' });
+          return;
+        }
+
+        // Update message
+        await pool.execute(
+          'UPDATE messages SET content = ?, edited_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [content.trim(), messageId]
+        );
+
+        // Emit to conversation
+        io.to(`conversation_${messages[0].conversation_id}`).emit('message_edited', {
+          messageId,
+          content: content.trim(),
+          editedAt: new Date()
+        });
+
+      } catch (error) {
+        console.error('Error editing message:', error);
+        socket.emit('error', { message: 'Failed to edit message' });
+      }
+    });
+
+    // Handle message deletion
+    socket.on('delete_message', async (data) => {
+      try {
+        const { messageId } = data;
+
+        // Check if user owns the message
+        const [messages] = await pool.execute(
+          'SELECT conversation_id FROM messages WHERE id = ? AND sender_id = ? AND deleted_at IS NULL',
+          [messageId, socket.userId]
+        );
+
+        if (messages.length === 0) {
+          socket.emit('error', { message: 'Message not found or access denied' });
+          return;
+        }
+
+        // Soft delete message
+        await pool.execute(
+          'UPDATE messages SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [messageId]
+        );
+
+        // Emit to conversation
+        io.to(`conversation_${messages[0].conversation_id}`).emit('message_deleted', {
+          messageId
+        });
+
+      } catch (error) {
+        console.error('Error deleting message:', error);
+        socket.emit('error', { message: 'Failed to delete message' });
+      }
+    });
+
     // Handle typing indicators
-    socket.on('typing_start', (connectionId) => {
-      socket.to(`connection_${connectionId}`).emit('user_typing', {
+    socket.on('typing_start', (data) => {
+      const { conversationId } = data;
+      socket.to(`conversation_${conversationId}`).emit('user_typing', {
         userId: socket.userId,
-        username: socket.user.username
+        username: `${socket.user.first_name} ${socket.user.last_name}`,
+        conversationId,
+        isTyping: true
       });
     });
 
-    socket.on('typing_stop', (connectionId) => {
-      socket.to(`connection_${connectionId}`).emit('user_stopped_typing', {
-        userId: socket.userId
+    socket.on('typing_stop', (data) => {
+      const { conversationId } = data;
+      socket.to(`conversation_${conversationId}`).emit('user_typing', {
+        userId: socket.userId,
+        username: `${socket.user.first_name} ${socket.user.last_name}`,
+        conversationId,
+        isTyping: false
       });
     });
 
     // Handle marking messages as read
-    socket.on('mark_messages_read', async (connectionId) => {
+    socket.on('mark_messages_read', async (data) => {
       try {
-        await pool.execute(
-          `UPDATE Messages SET is_read = TRUE 
-           WHERE connection_id = ? AND sender_user_id != ? AND is_read = FALSE`,
-          [connectionId, socket.userId]
+        const { conversationId } = data;
+
+        // Get unread messages in this conversation sent by others
+        const [unreadmessages] = await pool.execute(
+          `SELECT m.id FROM messages m
+           LEFT JOIN messagereadstatus mrs ON m.id = mrs.message_id AND mrs.user_id = ?
+           WHERE m.conversation_id = ? AND m.sender_id != ? AND m.deleted_at IS NULL AND mrs.id IS NULL`,
+          [socket.userId, conversationId, socket.userId]
         );
 
-        socket.to(`connection_${connectionId}`).emit('messages_read', {
-          connectionId,
-          readBy: socket.userId
-        });
+        if (unreadmessages.length > 0) {
+          const messageIds = unreadmessages.map(msg => msg.id);
+          const placeholders = messageIds.map(() => '(?, ?)').join(',');
+          const values = messageIds.flatMap(id => [id, socket.userId]);
+
+          await pool.execute(
+            `INSERT IGNORE INTO messagereadstatus (message_id, user_id) VALUES ${placeholders}`,
+            values
+          );
+
+          socket.to(`conversation_${conversationId}`).emit('messages_read', {
+            conversationId,
+            readBy: socket.userId,
+            messageIds
+          });
+        }
       } catch (error) {
         console.error('Error marking messages as read:', error);
       }
     });
 
-    socket.on('disconnect', () => {
+    // Handle message reactions
+    socket.on('add_reaction', async (data) => {
+      try {
+        const { messageId, reaction } = data;
+
+        // Check if message exists and user has access
+        const [messages] = await pool.execute(
+          `SELECT m.conversation_id, m.sender_id FROM messages m
+           JOIN Conversations c ON m.conversation_id = c.id
+           JOIN Connections conn ON c.connection_id = conn.id
+           WHERE m.id = ? AND (conn.sender_user_id = ? OR conn.receiver_user_id = ?) 
+           AND conn.status = 'accepted' AND m.deleted_at IS NULL`,
+          [messageId, socket.userId, socket.userId]
+        );
+
+        if (messages.length === 0) {
+          socket.emit('error', { message: 'Message not found or access denied' });
+          return;
+        }
+
+        // Check if user is trying to react to their own message
+        if (messages[0].sender_id === socket.userId) {
+          socket.emit('error', { message: 'You cannot react to your own messages' });
+          return;
+        }
+
+        // Check if user already reacted with this emoji
+        const [existingReactions] = await pool.execute(
+          'SELECT id FROM messagereactions WHERE message_id = ? AND user_id = ? AND reaction = ?',
+          [messageId, socket.userId, reaction]
+        );
+
+        if (existingReactions.length > 0) {
+          socket.emit('error', { message: 'You have already reacted with this emoji' });
+          return;
+        }
+
+        // Add reaction (no duplicate update)
+        await pool.execute(
+          'INSERT INTO messagereactions (message_id, user_id, reaction) VALUES (?, ?, ?)',
+          [messageId, socket.userId, reaction]
+        );
+
+        // Get updated reactions
+        const [reactions] = await pool.execute(
+          `SELECT reaction, COUNT(*) as count,
+                  GROUP_CONCAT(CONCAT(u.first_name, ' ', u.last_name) SEPARATOR ', ') as users
+           FROM messagereactions mr
+           JOIN users u ON mr.user_id = u.id
+           WHERE mr.message_id = ?
+           GROUP BY reaction`,
+          [messageId]
+        );
+
+        // Emit to conversation
+        io.to(`conversation_${messages[0].conversation_id}`).emit('message_reaction_updated', {
+          messageId,
+          reactions
+        });
+
+      } catch (error) {
+        console.error('Error adding reaction:', error);
+        socket.emit('error', { message: 'Failed to add reaction' });
+      }
+    });
+
+    socket.on('disconnect', async () => {
       console.log(`User ${socket.user.username} disconnected`);
+      
+      // Update user status to offline
+      try {
+        await pool.execute(
+          'UPDATE users SET status = ?, last_seen = CURRENT_TIMESTAMP WHERE id = ?',
+          ['offline', socket.userId]
+        );
+      } catch (error) {
+        console.error('Error updating user status on disconnect:', error);
+      }
     });
   });
 

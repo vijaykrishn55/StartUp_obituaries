@@ -207,12 +207,12 @@ export default function DashboardPage() {
           
           return bScore - aScore
         })
-        .slice(0, 7)
+        .slice(0, 5)
     } else if (activeFilter === 'most-funded') {
       filtered = filtered
         .filter(startup => startup.funding_amount_usd > 0)
         .sort((a, b) => (b.funding_amount_usd || 0) - (a.funding_amount_usd || 0))
-        .slice(0, 6)
+        .slice(0, 5)
     }
     
     // Apply industry filter

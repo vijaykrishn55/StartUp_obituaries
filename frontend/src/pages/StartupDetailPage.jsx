@@ -230,13 +230,13 @@ export default function StartupDetailPage() {
           </div>
         </div>
 
-        {/* Logo Upload for Owner */}
-        {user && startup.user_id === user.id && (
+        {/* Logo section - display only, no upload on detail page */}
+        {logoUrl && (
           <div className="mb-6">
-            <LogoUpload
-              startupId={startup.id}
-              currentLogo={logoUrl}
-              onLogoUpdate={handleLogoUpdate}
+            <img
+              src={logoUrl}
+              alt={`${startup.name} logo`}
+              className="h-16 w-16 object-contain rounded-lg border border-gray-200"
             />
           </div>
         )}

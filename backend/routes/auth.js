@@ -6,7 +6,15 @@ const { pool } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 // Simple validation middleware
 const validateRegistration = (req, res, next) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, first_name, last_name } = req.body;
+  
+  if (!first_name || first_name.trim().length === 0) {
+    return res.status(400).json({ error: 'First name is required' });
+  }
+  
+  if (!last_name || last_name.trim().length === 0) {
+    return res.status(400).json({ error: 'Last name is required' });
+  }
   
   if (!username || username.length < 3 || username.length > 50) {
     return res.status(400).json({ error: 'Username must be between 3 and 50 characters' });
@@ -54,7 +62,7 @@ const router = express.Router();
 // POST /api/auth/register - Register a new user
 router.post('/register', validateRegistration, async (req, res) => {
   try {
-    const { username, email, password, user_role = 'student', is_recruiter = false } = req.body;
+    const { username, email, password, first_name, last_name, user_role = 'student', is_recruiter = false } = req.body;
 
     // Check if user already exists
     const [existingUsers] = await pool.execute(
@@ -72,9 +80,9 @@ router.post('/register', validateRegistration, async (req, res) => {
 
     // Create new user
     const [result] = await pool.execute(
-      `INSERT INTO Users (username, email, password_hash, user_role, is_recruiter) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [username, email, hashedPassword, user_role, is_recruiter]
+      `INSERT INTO Users (username, email, password_hash, first_name, last_name, user_role, is_recruiter) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [username, email, hashedPassword, first_name.trim(), last_name.trim(), user_role, is_recruiter]
     );
 
     // Generate JWT token

@@ -28,7 +28,7 @@ export const useAuthStore = create((set, get) => ({
   verifyToken: async () => {
     try {
       const response = await authAPI.getProfile()
-      set({ user: response.data })
+      set({ user: response.data.user })
     } catch (error) {
       get().logout()
     }

@@ -86,13 +86,23 @@ export const connectionsAPI = {
   respondToRequest: (requestId, status) => api.put(`/connections/${requestId}`, { status }),
 }
 
+// Conversations API
+export const conversationsAPI = {
+  getConversations: () => api.get('/conversations'),
+  getConversation: (conversationId) => api.get(`/conversations/${conversationId}`),
+  createConversation: (connectionId) => api.post('/conversations', { connectionId }),
+}
+
 // Messages API
 export const messagesAPI = {
-  getMessages: (connectionId, params = {}) => 
-    api.get(`/messages/${connectionId}`, { params }),
-  
-  sendMessage: (connectionId, content) =>
-    api.post('/messages', { connection_id: connectionId, content })
+  getMessages: (conversationId, params = {}) => 
+    api.get(`/messages/${conversationId}`, { params }),
+  editMessage: (messageId, content) => api.put(`/messages/${messageId}`, { content }),
+  deleteMessage: (messageId) => api.delete(`/messages/${messageId}`),
+  addReaction: (messageId, reaction) => api.post(`/messages/${messageId}/reactions`, { reaction }),
+  removeReaction: (messageId, reaction) => api.delete(`/messages/${messageId}/reactions/${reaction}`),
+  // Note: Message sending is now handled via Socket.IO real-time events
+  // Use socket.emit('send_message', { conversationId, content }) instead
 }
 
 export const statsAPI = {

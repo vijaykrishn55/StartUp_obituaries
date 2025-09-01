@@ -15,24 +15,33 @@ router.get("/", optionalAuth, async (req, res) => {
     // safely parse query params
     let limit = parseInt(req.query.limit, 10);
     let offset = parseInt(req.query.offset, 10);
+    const userId = req.query.userId; // Filter by user ID if provided
 
     // Ensure valid numbers - if NaN, set defaults
     if (isNaN(limit) || limit <= 0) limit = 10;
     if (isNaN(offset) || offset < 0) offset = 0;
     
-    // Ensure they are integers (not NaN)
-    limit = Number(limit);
-    offset = Number(offset);
+    // Build query with optional user filter
+    let countQuery = 'SELECT COUNT(*) as total_count FROM Startups';
+    let startupsQuery = `SELECT s.*, u.username as creator_username
+      FROM Startups s
+      JOIN Users u ON s.created_by_user_id = u.id`;
+    
+    const queryParams = [];
+    
+    if (userId) {
+      countQuery += ' WHERE created_by_user_id = ?';
+      startupsQuery += ' WHERE s.created_by_user_id = ?';
+      queryParams.push(userId);
+    }
+    
+    startupsQuery += ` ORDER BY s.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+    
+    // Get total count of startups for pagination
+    const [[{ total_count }]] = await pool.execute(countQuery, queryParams);
 
     // Get startups first
-    const [startups] = await pool.execute(
-      `SELECT s.*, u.username as creator_username
-      FROM Startups s
-      JOIN Users u ON s.created_by_user_id = u.id
-      ORDER BY s.created_at DESC
-      LIMIT ? OFFSET ?`,
-      [limit, offset]
-    );
+    const [startups] = await pool.query(startupsQuery, queryParams);
 
     // Get reaction counts for each startup
     const startupIds = startups.map(s => s.id);
@@ -80,7 +89,7 @@ router.get("/", optionalAuth, async (req, res) => {
       }));
     }
 
-    res.json({ startups: rows });
+    res.json({ startups: rows, total_count });
   } catch (err) {
     console.error("Get startups error:", err);
     res.status(500).json({ error: "Failed to fetch startups" });

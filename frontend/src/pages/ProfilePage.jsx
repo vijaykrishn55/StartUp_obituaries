@@ -39,21 +39,32 @@ export default function ProfilePage() {
     if (targetUserId) {
       loadProfile()
     }
-  }, [targetUserId])
+  }, [userId, currentUser?.id])
 
   const loadProfile = async () => {
     try {
       setLoading(true);
       let profileData;
       if (isOwnProfile) {
-        const [profileResponse, startupsResponse, statsResponse] = await Promise.all([
+        const [profileResponse, startupsResponse] = await Promise.all([
           authAPI.getProfile(),
-          startupsAPI.getStartups({ userId: targetUserId }),
-          statsAPI.getUserStats(targetUserId)
+          startupsAPI.getStartups({ userId: targetUserId })
         ]);
-        profileData = profileResponse.data;
+        profileData = profileResponse.data.user;
         profileData.startups = startupsResponse.data.startups || startupsResponse.data || [];
-        setUserStats(statsResponse.data.stats);
+        // Get actual stats for own profile
+        try {
+          const statsResponse = await statsAPI.getUserStats(targetUserId);
+          setUserStats(statsResponse.data.stats);
+        } catch (statsError) {
+          console.error('Failed to load own stats:', statsError);
+          setUserStats({
+            total_reactions_received: 0,
+            comments_made: 0,
+            connections_count: 0,
+            startups_count: profileData.startups.length
+          });
+        }
       } else {
         const [profileResponse, statsResponse] = await Promise.all([
           usersAPI.getUserProfile(targetUserId),
@@ -95,11 +106,14 @@ export default function ProfilePage() {
   const handleEditProfile = async (e) => {
     e.preventDefault()
     try {
+      console.log('Sending profile update data:', editData)
       await usersAPI.updateProfile(editData)
       setProfile(prev => ({ ...prev, ...editData }))
       setIsEditing(false)
     } catch (error) {
       console.error('Failed to update profile:', error)
+      console.error('Error response:', error.response?.data)
+      console.error('Error status:', error.response?.status)
     }
   }
 
@@ -218,13 +232,13 @@ export default function ProfilePage() {
                 onClick={() => {
                   setIsEditing(true)
                   setEditData({
-                    first_name: profile.first_name,
-                    last_name: profile.last_name,
-                    bio: profile.bio,
-                    linkedin_url: profile.linkedin_url,
-                    github_url: profile.github_url,
-                    open_to_work: profile.open_to_work,
-                    open_to_co_founding: profile.open_to_co_founding
+                    first_name: profile.first_name || '',
+                    last_name: profile.last_name || '',
+                    bio: profile.bio || '',
+                    linkedin_url: profile.linkedin_url || '',
+                    github_url: profile.github_url || '',
+                    open_to_work: Boolean(profile.open_to_work),
+                    open_to_co_founding: Boolean(profile.open_to_co_founding)
                   })
                 }}
                 className="btn-outline flex items-center"
@@ -464,7 +478,7 @@ export default function ProfilePage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Connections</span>
-                <span className="font-medium">{userStats.connections_count}</span>
+                <span className="font-medium">{userStats.connections_count || 0}</span>
               </div>
             </div>
           </div>

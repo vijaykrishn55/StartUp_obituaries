@@ -155,11 +155,15 @@ router.put('/profile', authenticateToken, validateProfileUpdate, async (req, res
     }
     if (open_to_work !== undefined) {
       updateFields.push('open_to_work = ?');
-      updateValues.push(open_to_work);
+      // Convert string booleans to actual booleans
+      const boolValue = open_to_work === 'true' || open_to_work === true;
+      updateValues.push(boolValue);
     }
     if (open_to_co_founding !== undefined) {
       updateFields.push('open_to_co_founding = ?');
-      updateValues.push(open_to_co_founding);
+      // Convert string booleans to actual booleans
+      const boolValue = open_to_co_founding === 'true' || open_to_co_founding === true;
+      updateValues.push(boolValue);
     }
 
     if (updateFields.length === 0) {
@@ -188,6 +192,44 @@ router.put('/profile', authenticateToken, validateProfileUpdate, async (req, res
 
   } catch (error) {
     console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/:userId/stats - Get user statistics
+router.get('/:userId/stats', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Check if user exists
+    const [users] = await pool.execute(
+      'SELECT id FROM Users WHERE id = ?',
+      [userId]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get user statistics with proper error handling
+    const [statsResult] = await pool.execute(`
+      SELECT 
+        (SELECT COUNT(*) FROM Reactions r 
+         JOIN Startups s ON r.startup_id = s.id 
+         WHERE s.created_by_user_id = ?) as total_reactions_received,
+        (SELECT COUNT(*) FROM Comments WHERE user_id = ?) as comments_made,
+        (SELECT COUNT(*) FROM Connections 
+         WHERE (sender_user_id = ? OR receiver_user_id = ?) 
+         AND status = 'accepted') as connections_count,
+        (SELECT COUNT(*) FROM Startups WHERE created_by_user_id = ?) as startups_count
+    `, [userId, userId, userId, userId, userId]);
+
+    res.json({
+      stats: statsResult[0]
+    });
+
+  } catch (error) {
+    console.error('Get user stats error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
