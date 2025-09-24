@@ -6,22 +6,50 @@ import {
   TrophyIcon,
   UsersIcon,
   ChatBubbleLeftRightIcon,
-  UserIcon
+  UserIcon,
+  FireIcon
 } from '@heroicons/react/24/outline'
 import { cn } from '../lib/utils'
+import { useAuthStore } from '../stores/authStore'
 
-const navigation = [
-  { name: 'Feed', href: '/dashboard', icon: HomeIcon },
-  { name: 'Create Obituary', href: '/create', icon: PlusIcon },
-  { name: 'My Startups', href: '/my-startups', icon: BuildingOfficeIcon },
-  { name: 'Leaderboards', href: '/leaderboards', icon: TrophyIcon },
-  { name: 'Connections', href: '/connections', icon: UsersIcon },
-  { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon },
-  { name: 'Profile', href: '/profile', icon: UserIcon },
-]
+const getNavigationForRole = (userRole) => {
+  const baseNavigation = [
+    { name: 'Feed', href: '/dashboard', icon: HomeIcon },
+    { name: 'Leaderboards', href: '/leaderboards', icon: TrophyIcon },
+    { name: 'Connections', href: '/connections', icon: UsersIcon },
+    { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon },
+    { name: 'Profile', href: '/profile', icon: UserIcon },
+  ]
+
+  if (userRole === 'student') {
+    return [
+      ...baseNavigation.slice(0, 1), // Feed
+      { name: 'Trending Stories', href: '/dashboard?filter=trending', icon: FireIcon },
+      ...baseNavigation.slice(1) // Rest of navigation
+    ]
+  }
+
+  if (userRole === 'investor') {
+    // For investors - exclude create and my startups
+    return baseNavigation
+  }
+
+  // For founders and recruiters - include create and my startups
+  return [
+    { name: 'Feed', href: '/dashboard', icon: HomeIcon },
+    { name: 'Create Obituary', href: '/create', icon: PlusIcon },
+    { name: 'My Startups', href: '/my-startups', icon: BuildingOfficeIcon },
+    { name: 'Leaderboards', href: '/leaderboards', icon: TrophyIcon },
+    { name: 'Connections', href: '/connections', icon: UsersIcon },
+    { name: 'Messages', href: '/messages', icon: ChatBubbleLeftRightIcon },
+    { name: 'Profile', href: '/profile', icon: UserIcon },
+  ]
+}
 
 export default function Sidebar() {
   const location = useLocation()
+  const { user } = useAuthStore()
+  const navigation = getNavigationForRole(user?.user_role)
 
   return (
     <div className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-64 lg:flex-col">

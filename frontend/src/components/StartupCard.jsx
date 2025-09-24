@@ -82,6 +82,7 @@ export default function StartupCard({ startup, featured = false, onReactionUpdat
     }
   }
 
+
   const getYearsActive = () => {
     if (!startup.founded_year || !startup.died_year) return null
     return startup.died_year - startup.founded_year

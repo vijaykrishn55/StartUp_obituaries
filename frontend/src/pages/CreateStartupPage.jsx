@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import { startupsAPI } from '../lib/api'
 import { FAILURE_REASONS, STARTUP_STAGES } from '../lib/constants'
 import LogoUpload from '../components/LogoUpload'
+import StartupFormFieldAssistant from '../components/StartupFormFieldAssistant'
 import { 
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  PhotoIcon,
+  XMarkIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../stores/authStore'
 
@@ -45,7 +49,10 @@ export default function CreateStartupPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [createdStartupId, setCreatedStartupId] = useState(null)
-  const [logoUrl, setLogoUrl] = useState(null)
+  const [logoFile, setLogoFile] = useState(null)
+  const [logoPreview, setLogoPreview] = useState(null)
+  const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef(null)
   const { user } = useAuthStore()
   const navigate = useNavigate()
   
@@ -88,6 +95,75 @@ export default function CreateStartupPage() {
     }
   }
 
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a valid image file (JPEG, PNG, GIF, or WebP)')
+      return
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB')
+      return
+    }
+
+    setLogoFile(file)
+    
+    // Create preview URL
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setLogoPreview(e.target.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleDrag = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0]
+      
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+      if (!allowedTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, GIF, or WebP)')
+        return
+      }
+
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB')
+        return
+      }
+
+      setLogoFile(file)
+      
+      // Create preview URL
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setLogoPreview(e.target.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const onSubmit = async (data) => {
     setIsSubmitting(true)
     try {
@@ -103,8 +179,23 @@ export default function CreateStartupPage() {
       }
 
       const response = await startupsAPI.createStartup(formattedData)
-      setCreatedStartupId(response.data.id)
-      navigate(`/startup/${response.data.id}`)
+      const startupId = response.data.id
+      setCreatedStartupId(startupId)
+      
+      // Upload logo if one was selected
+      if (logoFile) {
+        try {
+          const formData = new FormData()
+          formData.append('logo', logoFile)
+          await startupsAPI.uploadLogo(startupId, formData)
+        } catch (logoError) {
+          console.error('Failed to upload logo:', logoError)
+          // Don't fail the entire process if logo upload fails
+          alert('Startup created successfully, but logo upload failed. You can upload it later from the startup page.')
+        }
+      }
+      
+      navigate(`/startup/${startupId}`)
     } catch (error) {
       console.error('Failed to create startup:', error)
       alert('Failed to create startup obituary. Please try again.')
@@ -133,27 +224,100 @@ export default function CreateStartupPage() {
               )}
             </div>
 
-            {/* Logo upload will be available after startup is created */}
-            <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              <div className="text-gray-500">
-                <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <p className="mt-2 text-sm font-medium text-gray-900">Logo Upload</p>
-                <p className="text-xs text-gray-500">You can upload a logo after creating the startup</p>
-              </div>
+            {/* Logo Upload */}
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Startup Logo (Optional)
+              </label>
+              
+              {logoPreview ? (
+                <div className="relative inline-block">
+                  <img
+                    src={logoPreview}
+                    alt="Logo preview"
+                    className="w-32 h-32 object-cover rounded-lg border border-gray-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogoFile(null)
+                      setLogoPreview(null)
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = ''
+                      }
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  >
+                    <XMarkIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                    dragActive
+                      ? 'border-blue-400 bg-blue-50'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  
+                  <div className="space-y-2">
+                    <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium text-blue-600">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {logoPreview && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-sm text-blue-600 hover:text-blue-500"
+                >
+                  Change Logo
+                </button>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Description *
               </label>
-              <textarea
-                {...register('description', { required: 'Description is required' })}
-                rows={4}
-                className="input"
-                placeholder="Brief description of what your startup did..."
-              />
+              <div className="relative">
+                <textarea
+                  {...register('description', { required: 'Description is required' })}
+                  rows={4}
+                  className="input"
+                  placeholder="Brief description of what your startup did..."
+                />
+                <div className="absolute right-2 top-2">
+                  <StartupFormFieldAssistant 
+                    fieldName="Description"
+                    fieldValue={watchedValues.description}
+                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry`}
+                    onUpdateField={(newValue) => {
+                      const event = { target: { value: newValue } };
+                      register('description').onChange(event);
+                    }}
+                  />
+                </div>
+              </div>
               {errors.description && (
                 <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
               )}
@@ -179,12 +343,25 @@ export default function CreateStartupPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Vision
                 </label>
-                <input
-                  {...register('vision')}
-                  type="text"
-                  className="input"
-                  placeholder="What was your big vision?"
-                />
+                <div className="relative">
+                  <input
+                    {...register('vision')}
+                    type="text"
+                    className="input"
+                    placeholder="What was your big vision?"
+                  />
+                  <div className="absolute right-2 top-2">
+                    <StartupFormFieldAssistant 
+                      fieldName="Vision"
+                      fieldValue={watchedValues.vision}
+                      startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry`}
+                      onUpdateField={(newValue) => {
+                        const event = { target: { value: newValue } };
+                        register('vision').onChange(event);
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -294,12 +471,25 @@ export default function CreateStartupPage() {
                   Provide a detailed analysis of what went wrong. Be honest and specific.
                 </p>
               </div>
-              <textarea
-                {...register('autopsy_report', { required: 'Autopsy report is required' })}
-                rows={6}
-                className="input"
-                placeholder="Describe in detail what led to the failure. What were the warning signs? What decisions contributed to the downfall?"
-              />
+              <div className="relative">
+                <textarea
+                  {...register('autopsy_report', { required: 'Autopsy report is required' })}
+                  rows={6}
+                  className="input"
+                  placeholder="Describe in detail what led to the failure. What were the warning signs? What decisions contributed to the downfall?"
+                />
+                <div className="absolute right-2 top-2">
+                  <StartupFormFieldAssistant 
+                    fieldName="Autopsy Report"
+                    fieldValue={watchedValues.autopsy_report}
+                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with failure reason: ${watchedValues.primary_failure_reason || 'unknown'}`}
+                    onUpdateField={(newValue) => {
+                      const event = { target: { value: newValue } };
+                      register('autopsy_report').onChange(event);
+                    }}
+                  />
+                </div>
+              </div>
               {errors.autopsy_report && (
                 <p className="mt-1 text-sm text-red-600">{errors.autopsy_report.message}</p>
               )}
@@ -340,12 +530,25 @@ export default function CreateStartupPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Peak Metrics
               </label>
-              <textarea
-                {...register('peak_metrics')}
-                rows={3}
-                className="input"
-                placeholder="e.g., 10K users, $50K MRR, 500K page views/month"
-              />
+              <div className="relative">
+                <textarea
+                  {...register('peak_metrics')}
+                  rows={3}
+                  className="input"
+                  placeholder="e.g., 10K users, $50K MRR, 500K page views/month"
+                />
+                <div className="absolute right-2 top-2">
+                  <StartupFormFieldAssistant 
+                    fieldName="Peak Metrics"
+                    fieldValue={watchedValues.peak_metrics}
+                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with stage: ${watchedValues.stage_at_death || 'unknown'} and funding: ${watchedValues.funding_amount_usd || 'unknown'}`}
+                    onUpdateField={(newValue) => {
+                      const event = { target: { value: newValue } };
+                      register('peak_metrics').onChange(event);
+                    }}
+                  />
+                </div>
+              </div>
               <p className="mt-1 text-sm text-gray-500">Describe your best metrics before the decline</p>
             </div>
 
@@ -377,12 +580,25 @@ export default function CreateStartupPage() {
                   Share the key insights and lessons that others can learn from your experience.
                 </p>
               </div>
-              <textarea
-                {...register('lessons_learned', { required: 'Please share your lessons learned' })}
-                rows={6}
-                className="input"
-                placeholder="What would you do differently? What advice would you give to other founders? What patterns did you notice?"
-              />
+              <div className="relative">
+                <textarea
+                  {...register('lessons_learned', { required: 'Please share your lessons learned' })}
+                  rows={6}
+                  className="input"
+                  placeholder="What would you do differently? What advice would you give to other founders? What patterns did you notice?"
+                />
+                <div className="absolute right-2 top-2">
+                  <StartupFormFieldAssistant 
+                    fieldName="Lessons Learned"
+                    fieldValue={watchedValues.lessons_learned}
+                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with failure reason: ${watchedValues.primary_failure_reason || 'unknown'} and autopsy report: ${watchedValues.autopsy_report?.substring(0, 200) || 'not provided'}`}
+                    onUpdateField={(newValue) => {
+                      const event = { target: { value: newValue } };
+                      register('lessons_learned').onChange(event);
+                    }}
+                  />
+                </div>
+              </div>
               {errors.lessons_learned && (
                 <p className="mt-1 text-sm text-red-600">{errors.lessons_learned.message}</p>
               )}
@@ -392,12 +608,25 @@ export default function CreateStartupPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Advice for Founders
               </label>
-              <textarea
-                {...register('advice_for_founders')}
-                rows={4}
-                className="input"
-                placeholder="Any specific advice you'd give to founders in similar situations?"
-              />
+              <div className="relative">
+                <textarea
+                  {...register('advice_for_founders')}
+                  rows={4}
+                  className="input"
+                  placeholder="Any specific advice you'd give to founders in similar situations?"
+                />
+                <div className="absolute right-2 top-2">
+                  <StartupFormFieldAssistant 
+                    fieldName="Advice for Founders"
+                    fieldValue={watchedValues.advice_for_founders}
+                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with lessons learned: ${watchedValues.lessons_learned || 'not provided'}`}
+                    onUpdateField={(newValue) => {
+                      const event = { target: { value: newValue } };
+                      register('advice_for_founders').onChange(event);
+                    }}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

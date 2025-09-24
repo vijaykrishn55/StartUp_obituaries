@@ -90,7 +90,7 @@ export const connectionsAPI = {
 export const conversationsAPI = {
   getConversations: () => api.get('/conversations'),
   getConversation: (conversationId) => api.get(`/conversations/${conversationId}`),
-  createConversation: (connectionId) => api.post('/conversations', { connectionId }),
+  createConversation: (otherUserId) => api.post('/conversations', { otherUserId }),
 }
 
 // Messages API

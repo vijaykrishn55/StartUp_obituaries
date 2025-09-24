@@ -9,43 +9,40 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     console.log(`Fetching conversations for userId: ${req.user.id}`);
 
-    // Get conversations based on accepted connections
+    // Get conversations based on user participation
     const [conversations] = await pool.execute(
       `SELECT c.id as conversation_id, c.created_at as conversation_created,
-              c.last_message_at, conn.id as connection_id,
-              conn.sender_user_id, conn.receiver_user_id,
+              c.last_message_at, c.user1_id, c.user2_id,
               -- Get other user details
               CASE 
-                WHEN conn.sender_user_id = ? THEN conn.receiver_user_id
-                ELSE conn.sender_user_id
+                WHEN c.user1_id = ? THEN c.user2_id
+                ELSE c.user1_id
               END as other_user_id,
               CASE 
-                WHEN conn.sender_user_id = ? THEN CONCAT(ru.first_name, ' ', ru.last_name)
-                ELSE CONCAT(su.first_name, ' ', su.last_name)
+                WHEN c.user1_id = ? THEN CONCAT(u2.first_name, ' ', u2.last_name)
+                ELSE CONCAT(u1.first_name, ' ', u1.last_name)
               END as other_user_name,
               CASE 
-                WHEN conn.sender_user_id = ? THEN ru.username
-                ELSE su.username
+                WHEN c.user1_id = ? THEN u2.username
+                ELSE u1.username
               END as other_username,
               CASE 
-                WHEN conn.sender_user_id = ? THEN ru.status
-                ELSE su.status
+                WHEN c.user1_id = ? THEN u2.status
+                ELSE u1.status
               END as other_user_status,
               -- Get last message
-              (SELECT content FROM messages m 
+              (SELECT content FROM Messages m 
                WHERE m.conversation_id = c.id AND m.deleted_at IS NULL 
                ORDER BY m.created_at DESC LIMIT 1) as last_message,
               -- Get unread count
-              (SELECT COUNT(*) FROM messages m
+              (SELECT COUNT(*) FROM Messages m
                LEFT JOIN MessageReadStatus mrs ON m.id = mrs.message_id AND mrs.user_id = ?
                WHERE m.conversation_id = c.id AND m.sender_id != ? 
                AND m.deleted_at IS NULL AND mrs.id IS NULL) as unread_count
-       FROM conversations c
-       JOIN connections conn ON c.connection_id = conn.id
-       JOIN users su ON conn.sender_user_id = su.id
-       JOIN users ru ON conn.receiver_user_id = ru.id
-       WHERE (conn.sender_user_id = ? OR conn.receiver_user_id = ?) 
-       AND conn.status = 'accepted'
+       FROM Conversations c
+       JOIN Users u1 ON c.user1_id = u1.id
+       JOIN Users u2 ON c.user2_id = u2.id
+       WHERE c.user1_id = ? OR c.user2_id = ?
        ORDER BY COALESCE(c.last_message_at, c.created_at) DESC`,
       [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]
     );
@@ -55,7 +52,6 @@ router.get('/', authenticateToken, async (req, res) => {
     // Format conversations for frontend
     const formattedconversations = conversations.map(conv => ({
       id: conv.conversation_id,
-      connection_id: conv.connection_id,
       type: 'direct',
       title: conv.other_user_name,
       other_user: {
@@ -85,12 +81,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
     // Check if conversation exists and user has access
     const [conversations] = await pool.execute(
-      `SELECT c.id, c.connection_id, c.created_at, c.last_message_at,
-              conn.sender_user_id, conn.receiver_user_id, conn.status
-       FROM conversations c
-       JOIN connections conn ON c.connection_id = conn.id
-       WHERE c.id = ? AND (conn.sender_user_id = ? OR conn.receiver_user_id = ?) 
-       AND conn.status = 'accepted'`,
+      `SELECT c.id, c.user1_id, c.user2_id, c.created_at, c.last_message_at
+       FROM Conversations c
+       WHERE c.id = ? AND (c.user1_id = ? OR c.user2_id = ?)`,
       [id, req.user.id, req.user.id]
     );
 
@@ -101,12 +94,12 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const conversation = conversations[0];
 
     // Get other user details
-    const otherUserId = conversation.sender_user_id === req.user.id 
-      ? conversation.receiver_user_id 
-      : conversation.sender_user_id;
+    const otherUserId = conversation.user1_id === req.user.id 
+      ? conversation.user2_id 
+      : conversation.user1_id;
 
     const [users] = await pool.execute(
-      'SELECT id, username, first_name, last_name, status, last_seen FROM users WHERE id = ?',
+      'SELECT id, username, first_name, last_name, status, last_seen FROM Users WHERE id = ?',
       [otherUserId]
     );
 
@@ -115,7 +108,6 @@ router.get('/:id', authenticateToken, async (req, res) => {
     res.json({
       conversation: {
         id: conversation.id,
-        connection_id: conversation.connection_id,
         type: 'direct',
         title: `${otherUser.first_name} ${otherUser.last_name}`,
         other_user: {
@@ -136,31 +128,37 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/conversations - Create or get conversation for a connection
+// POST /api/conversations - Create or get conversation between two users
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { connectionId } = req.body;
+    const { otherUserId } = req.body;
 
-    if (!connectionId) {
-      return res.status(400).json({ error: 'Connection ID is required' });
+    if (!otherUserId) {
+      return res.status(400).json({ error: 'Other user ID is required' });
     }
 
-    // Verify the connection exists and user is part of it
-    const [connections] = await pool.execute(
-      `SELECT id, sender_user_id, receiver_user_id, status 
-       FROM connections 
-       WHERE id = ? AND (sender_user_id = ? OR receiver_user_id = ?) AND status = 'accepted'`,
-      [connectionId, req.user.id, req.user.id]
+    if (parseInt(otherUserId) === req.user.id) {
+      return res.status(400).json({ error: 'Cannot create conversation with yourself' });
+    }
+
+    // Verify the other user exists
+    const [otherUsers] = await pool.execute(
+      'SELECT id FROM Users WHERE id = ?',
+      [otherUserId]
     );
 
-    if (connections.length === 0) {
-      return res.status(404).json({ error: 'Connection not found or not accepted' });
+    if (otherUsers.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if conversation already exists for this connection
+    // Ensure user1_id < user2_id for consistency
+    const user1Id = Math.min(req.user.id, parseInt(otherUserId));
+    const user2Id = Math.max(req.user.id, parseInt(otherUserId));
+
+    // Check if conversation already exists
     const [existingconversations] = await pool.execute(
-      'SELECT id FROM conversations WHERE connection_id = ?',
-      [connectionId]
+      'SELECT id FROM Conversations WHERE user1_id = ? AND user2_id = ?',
+      [user1Id, user2Id]
     );
 
     let conversationId;
@@ -171,8 +169,8 @@ router.post('/', authenticateToken, async (req, res) => {
     } else {
       // Create new conversation
       const [result] = await pool.execute(
-        'INSERT INTO conversations (connection_id, type) VALUES (?, ?)',
-        [connectionId, 'direct']
+        'INSERT INTO Conversations (user1_id, user2_id, type) VALUES (?, ?, ?)',
+        [user1Id, user2Id, 'direct']
       );
       conversationId = result.insertId;
     }

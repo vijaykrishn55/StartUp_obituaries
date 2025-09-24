@@ -110,8 +110,13 @@ export default function ConnectionsPage() {
     navigate(`/profile/${userId}`)
   }
 
-  const handleMessage = (connectionId) => {
-    navigate('/messages', { state: { connectionId } })
+  const handleMessage = (connection) => {
+    // Get the other user's ID from the connection
+    const otherUserId = connection.sender_user_id === currentUser?.id 
+      ? connection.receiver_user_id 
+      : connection.sender_user_id
+    
+    navigate('/messages', { state: { connectionId: connection.id, otherUserId } })
   }
 
   const filteredUsers = users.filter(user =>
@@ -171,7 +176,7 @@ export default function ConnectionsPage() {
             
             <div className="flex items-center space-x-2">
               <button 
-                onClick={() => handleMessage(connection.id)}
+                onClick={() => handleMessage(connection)}
                 className="btn-outline flex items-center"
               >
                 <ChatBubbleLeftRightIcon className="h-4 w-4 mr-1" />

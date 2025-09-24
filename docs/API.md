@@ -49,8 +49,25 @@ Authorization: Bearer <token>
 - `PUT /api/connections/:requestId` - Accept/reject request
 
 ### Messages
-- `GET /messages/:connectionId` - Get messages
-- `POST /messages` - Send message
+- `GET /messages/:conversationId` - Get message history for a conversation
+- `PUT /messages/:messageId` - Edit a message
+- `DELETE /messages/:messageId` - Delete a message
+- `POST /messages/:messageId/reactions` - Add reaction to message
+- `DELETE /messages/:messageId/reactions/:reaction` - Remove reaction
+
+### Conversations
+- `GET /conversations` - Get all conversations for authenticated user
+- `GET /conversations/:id` - Get specific conversation details
+- `POST /conversations` - Create or get conversation for a connection
+
+### Real-time Messaging (Socket.IO)
+- `send_message` - Send message in real-time
+- `edit_message` - Edit message in real-time
+- `delete_message` - Delete message in real-time
+- `join_conversation` - Join a conversation room
+- `typing_start/typing_stop` - Typing indicators
+- `mark_messages_read` - Mark messages as read
+- `add_reaction` - Add emoji reaction to message
 
 ### Leaderboards
 - `GET /leaderboards/most-downvoted` - Most downvoted startups

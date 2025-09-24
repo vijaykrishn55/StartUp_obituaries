@@ -1,8 +1,11 @@
 import { clsx } from 'clsx'
+import { twMerge } from 'tailwind-merge'
 import { failureReasonColors, failureReasonColorsCard } from './constants'
 
 // Utility function for conditional class names
-export const cn = (...classes) => clsx(...classes)
+export function cn(...inputs) {
+  return twMerge(clsx(inputs))
+}
 
 // Get failure reason styling for detail pages (with borders)
 export const getFailureReasonStyle = (reason) => {

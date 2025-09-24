@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { 
   ChatBubbleLeftRightIcon,
   MagnifyingGlassIcon,
@@ -13,6 +14,8 @@ import useSocket from '../hooks/useSocket'
 import { cn, formatRelativeTime } from '../lib/utils'
 
 export default function MessagesPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [conversations, setConversations] = useState([])
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [currentUser, setCurrentUser] = useState(null)
@@ -26,6 +29,49 @@ export default function MessagesPage() {
   useEffect(() => {
     loadInitialData()
   }, [])
+
+  // Handle navigation from connections page
+  useEffect(() => {
+    const handleConnectionRedirect = async () => {
+      if (location.state?.connectionId && currentUser) {
+        try {
+          // Get connection details to extract user IDs
+          const connectionsResponse = await connectionsAPI.getConnections()
+          const connections = connectionsResponse.data.connections || connectionsResponse.data || []
+          const targetConnection = connections.find(conn => conn.id === location.state.connectionId)
+          
+          if (targetConnection) {
+            // Get the other user's ID
+            const otherUserId = targetConnection.sender_user_id === currentUser.id 
+              ? targetConnection.receiver_user_id 
+              : targetConnection.sender_user_id
+            
+            // Check if conversation already exists
+            const existingConversation = conversations.find(conv => 
+              (conv.user1_id === currentUser.id && conv.user2_id === otherUserId) ||
+              (conv.user1_id === otherUserId && conv.user2_id === currentUser.id)
+            )
+            
+            if (existingConversation) {
+              setSelectedConversation(existingConversation)
+            } else {
+              // Create new conversation
+              await handleStartNewConversation(targetConnection)
+            }
+          }
+          
+          // Clear the navigation state
+          navigate('/messages', { replace: true })
+        } catch (error) {
+          console.error('Failed to handle connection redirect:', error)
+        }
+      }
+    }
+    
+    if (currentUser && location.state?.connectionId) {
+      handleConnectionRedirect()
+    }
+  }, [currentUser, location.state, conversations])
 
   useEffect(() => {
     // Set up message notification listener
@@ -80,10 +126,17 @@ export default function MessagesPage() {
         .filter(conn => conn.status === 'accepted')
       
       // Filter out connections that already have conversations
-      const conversationConnectionIds = conversations.map(conv => conv.connection_id)
-      const availableConns = acceptedConnections.filter(
-        conn => !conversationConnectionIds.includes(conn.id)
-      )
+      const availableConns = acceptedConnections.filter(conn => {
+        const otherUserId = conn.sender_user_id === currentUser?.id 
+          ? conn.receiver_user_id 
+          : conn.sender_user_id
+        
+        // Check if conversation exists for this user pair
+        return !conversations.some(conv => 
+          (conv.user1_id === currentUser?.id && conv.user2_id === otherUserId) ||
+          (conv.user1_id === otherUserId && conv.user2_id === currentUser?.id)
+        )
+      })
       
       setAvailableConnections(availableConns)
     } catch (error) {
@@ -93,8 +146,13 @@ export default function MessagesPage() {
 
   const handleStartNewConversation = async (connection) => {
     try {
-      // Create conversation for this connection
-      const response = await conversationsAPI.createConversation(connection.id)
+      // Get the other user's ID from the connection
+      const otherUserId = connection.sender_user_id === currentUser.id 
+        ? connection.receiver_user_id 
+        : connection.sender_user_id
+      
+      // Create conversation with the other user
+      const response = await conversationsAPI.createConversation(otherUserId)
       const newConversation = response.data.conversation
       
       // Add to conversations list

@@ -22,7 +22,7 @@ import { startupsAPI, reactionsAPI, commentsAPI, teamAPI } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ReactionPanel from '../components/ReactionPanel'
-import CommentsSection from '../components/CommentsSection'
+import ThreadedComments from '../components/ThreadedComments'
 import TeamSection from '../components/TeamSection'
 import LogoUpload from '../components/LogoUpload'
 import { cn, getFailureReasonStyle, formatCurrency, formatDate } from '../lib/utils'
@@ -363,7 +363,7 @@ export default function StartupDetailPage() {
           <TeamSection startupId={startup.id} isOwner={isOwner} />
 
           {/* Comments */}
-          <CommentsSection startupId={startup.id} />
+          <ThreadedComments startupId={startup.id} />
         </div>
 
         {/* Sidebar */}

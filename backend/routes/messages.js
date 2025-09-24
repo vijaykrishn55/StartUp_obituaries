@@ -13,16 +13,16 @@ router.get('/:conversationId', authenticateToken, async (req, res) => {
 
     console.log(`Fetching messages for conversationId: ${conversationId}, userId: ${req.user.id}`);
 
-    // Check if conversation exists and user has access through connection
+    // Check if conversation exists and user has access
     const [conversations] = await pool.execute(
-      `SELECT c.id, c.connection_id, conn.sender_user_id, conn.receiver_user_id, conn.status 
-       FROM conversations c
-       JOIN connections conn ON c.connection_id = conn.id
-       WHERE c.id = ? AND (conn.sender_user_id = ? OR conn.receiver_user_id = ?) AND conn.status = 'accepted'`,
+      `SELECT c.id, c.user1_id, c.user2_id
+       FROM Conversations c
+       WHERE c.id = ? AND (c.user1_id = ? OR c.user2_id = ?)`,
       [conversationId, req.user.id, req.user.id]
     );
 
     console.log(`Found conversations:`, conversations);
+    console.log(`Conversation access check - conversationId: ${conversationId}, userId: ${req.user.id}`);
 
     if (conversations.length === 0) {
       console.log(`No accessible conversation found for conversationId: ${conversationId}, userId: ${req.user.id}`);
@@ -32,19 +32,21 @@ router.get('/:conversationId', authenticateToken, async (req, res) => {
     // Get messages with sender info and read status
     const [messages] = await pool.execute(
       `SELECT m.id, m.content, m.message_type, m.reply_to_id, m.created_at, m.edited_at, 
-              m.sender_id as sender_user_id, m.sender_id,
-              u.id as sender_id_user, u.username, u.first_name, u.last_name,
-              (SELECT COUNT(*) FROM messagereadstatus mrs WHERE mrs.message_id = m.id AND mrs.user_id = ?) as is_read_by_user,
+              m.sender_id, u.username, u.first_name, u.last_name,
+              (SELECT COUNT(*) FROM MessageReadStatus mrs WHERE mrs.message_id = m.id AND mrs.user_id = ?) as is_read_by_user,
               rm.content as reply_content, ru.first_name as reply_sender_name
-       FROM messages m
-       JOIN users u ON m.sender_id = u.id
-       LEFT JOIN messages rm ON m.reply_to_id = rm.id
-       LEFT JOIN users ru ON rm.sender_id = ru.id
+       FROM Messages m
+       JOIN Users u ON m.sender_id = u.id
+       LEFT JOIN Messages rm ON m.reply_to_id = rm.id
+       LEFT JOIN Users ru ON rm.sender_id = ru.id
        WHERE m.conversation_id = ? AND m.deleted_at IS NULL
        ORDER BY m.created_at ASC
        LIMIT ? OFFSET ?`,
       [req.user.id, conversationId, parseInt(limit), parseInt(offset)]
     );
+
+    console.log(`Query executed for messages - conversationId: ${conversationId}, found ${messages.length} messages`);
+    console.log(`Messages query result:`, messages);
 
     // Mark unread messages as read for current user
     const unreadMessageIds = messages
@@ -56,14 +58,14 @@ router.get('/:conversationId', authenticateToken, async (req, res) => {
       const values = unreadMessageIds.flatMap(id => [id, req.user.id]);
       
       await pool.execute(
-        `INSERT IGNORE INTO messagereadstatus (message_id, user_id) VALUES ${placeholders}`,
+        `INSERT IGNORE INTO MessageReadStatus (message_id, user_id) VALUES ${placeholders}`,
         values
       );
     }
 
     // Get total count
     const [countResult] = await pool.execute(
-      'SELECT COUNT(*) as total FROM messages WHERE conversation_id = ? AND deleted_at IS NULL',
+      'SELECT COUNT(*) as total FROM Messages WHERE conversation_id = ? AND deleted_at IS NULL',
       [conversationId]
     );
 
@@ -72,8 +74,8 @@ router.get('/:conversationId', authenticateToken, async (req, res) => {
       const [reactions] = await pool.execute(
         `SELECT reaction, COUNT(*) as count,
                 GROUP_CONCAT(CONCAT(u.first_name, ' ', u.last_name) SEPARATOR ', ') as users
-         FROM messagereactions mr
-         JOIN users u ON mr.user_id = u.id
+         FROM MessageReactions mr
+         JOIN Users u ON mr.user_id = u.id
          WHERE mr.message_id = ?
          GROUP BY reaction`,
         [message.id]
@@ -81,6 +83,8 @@ router.get('/:conversationId', authenticateToken, async (req, res) => {
       message.reactions = reactions;
     }
 
+    console.log(`Returning ${messages.length} messages for conversation ${conversationId}`);
+    
     res.json({
       messages: messages, // Keep chronological order
       pagination: {
@@ -109,7 +113,7 @@ router.put('/:messageId', authenticateToken, async (req, res) => {
 
     // Check if user owns this message
     const [messages] = await pool.execute(
-      'SELECT id, conversation_id FROM messages WHERE id = ? AND sender_id = ? AND deleted_at IS NULL',
+      'SELECT id, conversation_id FROM Messages WHERE id = ? AND sender_id = ? AND deleted_at IS NULL',
       [messageId, req.user.id]
     );
 
@@ -119,7 +123,7 @@ router.put('/:messageId', authenticateToken, async (req, res) => {
 
     // Update the message
     await pool.execute(
-      'UPDATE messages SET content = ?, edited_at = CURRENT_TIMESTAMP WHERE id = ?',
+      'UPDATE Messages SET content = ?, edited_at = CURRENT_TIMESTAMP WHERE id = ?',
       [content.trim(), messageId]
     );
 
@@ -138,7 +142,7 @@ router.delete('/:messageId', authenticateToken, async (req, res) => {
 
     // Check if user owns this message
     const [messages] = await pool.execute(
-      'SELECT id, conversation_id FROM messages WHERE id = ? AND sender_id = ? AND deleted_at IS NULL',
+      'SELECT id, conversation_id FROM Messages WHERE id = ? AND sender_id = ? AND deleted_at IS NULL',
       [messageId, req.user.id]
     );
 
@@ -148,7 +152,7 @@ router.delete('/:messageId', authenticateToken, async (req, res) => {
 
     // Soft delete the message
     await pool.execute(
-      'UPDATE messages SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?',
+      'UPDATE Messages SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?',
       [messageId]
     );
 
@@ -172,9 +176,9 @@ router.post('/:messageId/reactions', authenticateToken, async (req, res) => {
 
     // Check if message exists and user has access
     const [messages] = await pool.execute(
-      `SELECT m.id, m.sender_id FROM messages m
-       JOIN conversations c ON m.conversation_id = c.id
-       JOIN connections conn ON c.connection_id = conn.id
+      `SELECT m.id, m.sender_id FROM Messages m
+       JOIN Conversations c ON m.conversation_id = c.id
+       JOIN Connections conn ON c.connection_id = conn.id
        WHERE m.id = ? AND (conn.sender_user_id = ? OR conn.receiver_user_id = ?) 
        AND conn.status = 'accepted' AND m.deleted_at IS NULL`,
       [messageId, req.user.id, req.user.id]
@@ -191,7 +195,7 @@ router.post('/:messageId/reactions', authenticateToken, async (req, res) => {
 
     // Check if user already reacted with this emoji
     const [existingReactions] = await pool.execute(
-      'SELECT id FROM messagereactions WHERE message_id = ? AND user_id = ? AND reaction = ?',
+      'SELECT id FROM MessageReactions WHERE message_id = ? AND user_id = ? AND reaction = ?',
       [messageId, req.user.id, reaction]
     );
 
@@ -201,7 +205,7 @@ router.post('/:messageId/reactions', authenticateToken, async (req, res) => {
 
     // Add reaction (no ON DUPLICATE KEY UPDATE - prevent overriding)
     await pool.execute(
-      'INSERT INTO messagereactions (message_id, user_id, reaction) VALUES (?, ?, ?)',
+      'INSERT INTO MessageReactions (message_id, user_id, reaction) VALUES (?, ?, ?)',
       [messageId, req.user.id, reaction]
     );
 
@@ -209,8 +213,8 @@ router.post('/:messageId/reactions', authenticateToken, async (req, res) => {
     const [reactions] = await pool.execute(
       `SELECT reaction, COUNT(*) as count,
               GROUP_CONCAT(CONCAT(u.first_name, ' ', u.last_name) SEPARATOR ', ') as users
-       FROM messagereactions mr
-       JOIN users u ON mr.user_id = u.id
+       FROM MessageReactions mr
+       JOIN Users u ON mr.user_id = u.id
        WHERE mr.message_id = ?
        GROUP BY reaction`,
       [messageId]
@@ -234,7 +238,7 @@ router.delete('/:messageId/reactions/:reaction', authenticateToken, async (req, 
 
     // Remove reaction
     const [result] = await pool.execute(
-      'DELETE FROM messagereactions WHERE message_id = ? AND user_id = ? AND reaction = ?',
+      'DELETE FROM MessageReactions WHERE message_id = ? AND user_id = ? AND reaction = ?',
       [messageId, req.user.id, reaction]
     );
 

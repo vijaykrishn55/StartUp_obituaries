@@ -181,6 +181,33 @@ router.put('/:requestId', authenticateToken, async (req, res) => {
       [status, requestId]
     );
 
+    // If connection is accepted, automatically create a conversation
+    if (status === 'accepted') {
+      try {
+        // Get the user IDs from the connection
+        const user1Id = Math.min(request.sender_user_id, request.receiver_user_id);
+        const user2Id = Math.max(request.sender_user_id, request.receiver_user_id);
+
+        // Check if conversation already exists for these users
+        const [existingConversations] = await pool.execute(
+          'SELECT id FROM Conversations WHERE user1_id = ? AND user2_id = ?',
+          [user1Id, user2Id]
+        );
+
+        if (existingConversations.length === 0) {
+          // Create new conversation for these users
+          await pool.execute(
+            'INSERT INTO Conversations (user1_id, user2_id, type) VALUES (?, ?, ?)',
+            [user1Id, user2Id, 'direct']
+          );
+          console.log(`Auto-created conversation for users ${user1Id} and ${user2Id}`);
+        }
+      } catch (conversationError) {
+        console.error('Error creating conversation for accepted connection:', conversationError);
+        // Don't fail the connection acceptance if conversation creation fails
+      }
+    }
+
     res.json({
       message: `Connection request ${status} successfully`,
       status
