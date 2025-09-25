@@ -11,7 +11,6 @@ import {
   ArrowPathIcon,
   CheckIcon,
   XMarkIcon,
-  SearchIcon,
   MagnifyingGlassIcon,
   ArrowRightIcon
 } from '@heroicons/react/24/outline';
@@ -22,11 +21,9 @@ export default function StartupNameSearch({ onClose }) {
   const [selectedStartup, setSelectedStartup] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [generatedDetails, setGeneratedDetails] = useState(null);
   const [step, setStep] = useState(1);
-  const [successMessage, setSuccessMessage] = useState(null);
   
   const navigate = useNavigate();
 
@@ -127,10 +124,27 @@ export default function StartupNameSearch({ onClose }) {
       const response = await generateContent(prompt);
       const generatedText = response.candidates[0].content.parts[0].text;
       
-      // Extract the JSON object from the response
-      const jsonStart = generatedText.indexOf('{');
-      const jsonEnd = generatedText.lastIndexOf('}') + 1;
-      const jsonStr = generatedText.substring(jsonStart, jsonEnd);
+      // Extract and clean the JSON from the response
+      let jsonStr = generatedText.trim();
+      
+      // Handle markdown code blocks
+      if (jsonStr.includes('```json')) {
+        const jsonStart = jsonStr.indexOf('```json') + 7;
+        const jsonEnd = jsonStr.indexOf('```', jsonStart);
+        if (jsonStart > 6 && jsonEnd > jsonStart) {
+          jsonStr = jsonStr.substring(jsonStart, jsonEnd).trim();
+        }
+      } else if (!jsonStr.startsWith('{')) {
+        // Find the JSON object if not at the start
+        const jsonStart = jsonStr.indexOf('{');
+        const jsonEnd = jsonStr.lastIndexOf('}') + 1;
+        if (jsonStart !== -1 && jsonEnd > jsonStart) {
+          jsonStr = jsonStr.substring(jsonStart, jsonEnd);
+        }
+      }
+      
+      // Clean up trailing commas
+      jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
       
       const parsedDetails = JSON.parse(jsonStr);
       setGeneratedDetails(parsedDetails);
@@ -144,52 +158,35 @@ export default function StartupNameSearch({ onClose }) {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleFillForm = () => {
     if (!selectedStartup || !generatedDetails) return;
 
-    try {
-      setIsSubmitting(true);
-      setError(null);
-      
-      // Convert string array to actual array if needed
-      let keyInvestors = generatedDetails.key_investors;
-      if (typeof keyInvestors === 'string') {
-        keyInvestors = keyInvestors.split(',').map(inv => inv.trim());
-      }
-      
-      // Format data for API
-      const formattedData = {
-        name: selectedStartup.name,
-        description: generatedDetails.description,
-        industry: generatedDetails.industry,
-        vision: generatedDetails.vision,
-        founded_year: parseInt(generatedDetails.founded_year),
-        died_year: parseInt(generatedDetails.died_year),
-        primary_failure_reason: generatedDetails.primary_failure_reason,
-        stage_at_death: generatedDetails.stage_at_death,
-        autopsy_report: generatedDetails.autopsy_report,
-        funding_amount_usd: parseFloat(generatedDetails.funding_amount_usd.toString().replace(/[^0-9.-]+/g,"")),
-        key_investors: keyInvestors,
-        peak_metrics: generatedDetails.peak_metrics,
-        lessons_learned: generatedDetails.lessons_learned,
-        advice_for_founders: generatedDetails.advice_for_founders,
-      };
-      
-      const response = await startupsAPI.createStartup(formattedData);
-      
-      setSuccessMessage('Startup obituary created successfully!');
-      
-      // Navigate to the new startup page after 2 seconds
-      setTimeout(() => {
-        navigate(`/startup/${response.data.id}`);
-      }, 2000);
-      
-    } catch (err) {
-      console.error('Error creating startup:', err);
-      setError('Failed to create startup. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Prepare the data to pass to the create page
+    const formData = {
+      name: selectedStartup.name,
+      description: generatedDetails.description,
+      industry: generatedDetails.industry,
+      vision: generatedDetails.vision,
+      founded_year: generatedDetails.founded_year,
+      died_year: generatedDetails.died_year,
+      primary_failure_reason: generatedDetails.primary_failure_reason,
+      stage_at_death: generatedDetails.stage_at_death,
+      autopsy_report: generatedDetails.autopsy_report,
+      funding_amount_usd: generatedDetails.funding_amount_usd,
+      key_investors: Array.isArray(generatedDetails.key_investors) 
+        ? generatedDetails.key_investors.join(', ') 
+        : generatedDetails.key_investors,
+      peak_metrics: typeof generatedDetails.peak_metrics === 'string' 
+        ? generatedDetails.peak_metrics 
+        : JSON.stringify(generatedDetails.peak_metrics),
+      lessons_learned: Array.isArray(generatedDetails.lessons_learned)
+        ? generatedDetails.lessons_learned.join('\n• ')
+        : generatedDetails.lessons_learned,
+      advice_for_founders: generatedDetails.advice_for_founders,
+    };
+
+    // Navigate to create page with the pre-filled data
+    navigate('/create', { state: { prefilledData: formData } });
   };
 
   const handleBack = () => {
@@ -397,21 +394,11 @@ export default function StartupNameSearch({ onClose }) {
               </button>
               
               <button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
+                onClick={handleFillForm}
                 className="btn-primary flex items-center"
               >
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Publishing...
-                  </>
-                ) : (
-                  <>
-                    Publish Story
-                    <ArrowRightIcon className="h-5 w-5 ml-2" />
-                  </>
-                )}
+                Fill Obituary Form
+                <ArrowRightIcon className="h-5 w-5 ml-2" />
               </button>
             </div>
           </div>

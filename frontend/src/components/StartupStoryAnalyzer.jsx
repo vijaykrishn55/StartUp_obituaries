@@ -78,10 +78,27 @@ export default function StartupStoryAnalyzer({ startup, onClose }) {
       const response = await generateContent(prompt);
       const generatedText = response.candidates[0].content.parts[0].text;
       
-      // Extract the JSON object from the response
-      const jsonStart = generatedText.indexOf('{');
-      const jsonEnd = generatedText.lastIndexOf('}') + 1;
-      const jsonStr = generatedText.substring(jsonStart, jsonEnd);
+      // Extract and clean the JSON from the response
+      let jsonStr = generatedText.trim();
+      
+      // Handle markdown code blocks
+      if (jsonStr.includes('```json')) {
+        const jsonStart = jsonStr.indexOf('```json') + 7;
+        const jsonEnd = jsonStr.indexOf('```', jsonStart);
+        if (jsonStart > 6 && jsonEnd > jsonStart) {
+          jsonStr = jsonStr.substring(jsonStart, jsonEnd).trim();
+        }
+      } else if (!jsonStr.startsWith('{')) {
+        // Find the JSON object if not at the start
+        const jsonStart = jsonStr.indexOf('{');
+        const jsonEnd = jsonStr.lastIndexOf('}') + 1;
+        if (jsonStart !== -1 && jsonEnd > jsonStart) {
+          jsonStr = jsonStr.substring(jsonStart, jsonEnd);
+        }
+      }
+      
+      // Clean up trailing commas
+      jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
       
       setAnalysis(JSON.parse(jsonStr));
     } catch (err) {

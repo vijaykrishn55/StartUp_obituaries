@@ -319,20 +319,44 @@ export default function StartupDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {(() => {
                     try {
-                      const metrics = typeof startup.peak_metrics === 'string' 
+                      let metrics = typeof startup.peak_metrics === 'string' 
                         ? JSON.parse(startup.peak_metrics) 
                         : startup.peak_metrics;
                       
-                      return Object.entries(metrics).map(([key, value]) => (
-                        <div key={key} className="text-center">
-                          <div className="text-2xl font-bold text-green-700">
-                            {typeof value === 'number' ? value.toLocaleString() : value}
+                      // Handle array format with {metric, value} objects
+                      if (Array.isArray(metrics)) {
+                        return metrics.map((item, index) => (
+                          <div key={index} className="text-center">
+                            <div className="text-2xl font-bold text-green-700">
+                              {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
+                            </div>
+                            <div className="text-sm text-gray-600 capitalize">
+                              {item.metric}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600 capitalize">
-                            {key.replace(/_/g, ' ')}
+                        ));
+                      }
+                      
+                      // Handle object format with key-value pairs
+                      if (typeof metrics === 'object' && metrics !== null) {
+                        return Object.entries(metrics).map(([key, value]) => (
+                          <div key={key} className="text-center">
+                            <div className="text-2xl font-bold text-green-700">
+                              {typeof value === 'number' ? value.toLocaleString() : value}
+                            </div>
+                            <div className="text-sm text-gray-600 capitalize">
+                              {key.replace(/_/g, ' ')}
+                            </div>
                           </div>
-                        </div>
-                      ));
+                        ));
+                      }
+                      
+                      // Fallback for other formats
+                      return (
+                        <p className="text-gray-600 leading-relaxed col-span-3">
+                          {metrics}
+                        </p>
+                      );
                     } catch (e) {
                       return (
                         <p className="text-gray-600 leading-relaxed col-span-3">
@@ -346,6 +370,17 @@ export default function StartupDetailPage() {
             </div>
           )}
 
+          {/* Lessons Learned */}
+          {startup.lessons_learned && (
+            <div className="card">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">💡 Lessons Learned</h2>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="text-gray-600 leading-relaxed whitespace-pre-line">
+                  {startup.lessons_learned}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Advice for Founders */}
           {startup.advice_for_founders && (

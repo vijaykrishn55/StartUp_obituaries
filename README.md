@@ -78,6 +78,8 @@ npm start
 ### Frontend Setup
 ```bash
 cd frontend
+cp .env.example .env
+# Edit .env file and add your Gemini API key
 npm install
 npm run dev
 ```
@@ -109,6 +111,16 @@ JWT_SECRET=your_jwt_secret
 PORT=3000
 CORS_ORIGIN=http://localhost:5173
 ```
+
+### Frontend (.env)
+```
+VITE_GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+**Setup Instructions:**
+1. Copy `.env.example` to `.env` in both backend and frontend directories
+2. Fill in your actual API keys and database credentials
+3. Get your Gemini API key from: https://makersuite.google.com/app/apikey
 
 ## Contributing
 

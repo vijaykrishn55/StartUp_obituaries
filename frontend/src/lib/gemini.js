@@ -1,8 +1,13 @@
 import axios from 'axios';
 
 // Gemini API configuration
-const GEMINI_API_KEY = 'AIzaSyCe1-DBsjAS-yq42ml7JmTkKKYwzaJL03k';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+// Check if API key is configured
+if (!GEMINI_API_KEY) {
+  console.error('VITE_GEMINI_API_KEY is not configured. Please check your .env file.');
+}
 
 /**
  * Generate content using Gemini API
@@ -11,6 +16,11 @@ const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/
  */
 export const generateContent = async (prompt) => {
   try {
+    // Basic validation
+    if (!prompt || typeof prompt !== 'string') {
+      throw new Error('Invalid prompt provided');
+    }
+
     const response = await axios.post(
       GEMINI_API_URL,
       {
@@ -28,14 +38,33 @@ export const generateContent = async (prompt) => {
         headers: {
           'Content-Type': 'application/json',
           'X-goog-api-key': GEMINI_API_KEY
-        }
+        },
+        timeout: 30000 // 30 second timeout to avoid hanging requests
       }
     );
+
+    // Validate response format
+    if (!response.data || !response.data.candidates || !response.data.candidates[0]) {
+      console.error('Unexpected Gemini API response format:', response.data);
+      throw new Error('Received unexpected response format from Gemini API');
+    }
 
     return response.data;
   } catch (error) {
     console.error('Error making Gemini API request:', error);
-    throw error;
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error('Gemini API error data:', error.response.data);
+      console.error('Gemini API error status:', error.response.status);
+      throw new Error(`Gemini API error: ${error.response.status} - ${error.response.data.error?.message || 'Unknown error'}`);
+    } else if (error.request) {
+      // The request was made but no response was received
+      throw new Error('No response received from Gemini API. Please check your connection.');
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      throw error;
+    }
   }
 };
 
@@ -46,6 +75,10 @@ export const generateContent = async (prompt) => {
  */
 export const generateStartupDetails = async (startupName) => {
   try {
+    if (!startupName || typeof startupName !== 'string') {
+      throw new Error('Invalid startup name provided');
+    }
+    
     const prompt = `
       You are an expert business analyst specializing in startup failure analysis. 
       I want you to generate comprehensive details about a fictional failed startup named "${startupName}".
@@ -66,20 +99,56 @@ export const generateStartupDetails = async (startupName) => {
       12. Lessons learned (4-5 bullet points of valuable lessons)
       13. Advice for founders (2-3 paragraphs of specific advice)
       
-      Format your response as a JSON object with these fields: description, industry, vision, founded_year, died_year, primary_failure_reason, stage_at_death, funding_amount_usd, key_investors (array), peak_metrics, autopsy_report, lessons_learned, advice_for_founders.
+      Format your response as a JSON object with these fields: description, industry, vision, founded_year, died_year, primary_failure_reason, stage_at_death, funding_amount_usd, key_investors (array), peak_metrics (formatted string like "100K monthly users, $2M ARR, 25% MoM growth"), autopsy_report, lessons_learned, advice_for_founders.
       
       Make the story realistic, specific, and insightful. Include concrete details, numbers, and specific events that led to failure. Make the autopsy report especially detailed and thoughtful.
+      
+      IMPORTANT: Return only the JSON object, without any markdown formatting, code blocks, or additional text.
     `;
 
     const response = await generateContent(prompt);
     const generatedText = response.candidates[0].content.parts[0].text;
     
-    // Extract the JSON object from the response
-    const jsonStart = generatedText.indexOf('{');
-    const jsonEnd = generatedText.lastIndexOf('}') + 1;
-    const jsonStr = generatedText.substring(jsonStart, jsonEnd);
-    
-    return JSON.parse(jsonStr);
+    try {
+      // Extract and clean the JSON from the response
+      let jsonStr = generatedText.trim();
+      
+      // Handle case where response is wrapped in markdown code blocks
+      if (jsonStr.includes('```json')) {
+        const jsonStart = jsonStr.indexOf('```json') + 7;
+        const jsonEnd = jsonStr.indexOf('```', jsonStart);
+        if (jsonStart > 6 && jsonEnd > jsonStart) {
+          jsonStr = jsonStr.substring(jsonStart, jsonEnd).trim();
+        }
+      } else if (jsonStr.includes('```')) {
+        // Handle generic code blocks
+        const jsonStart = jsonStr.indexOf('```') + 3;
+        const jsonEnd = jsonStr.indexOf('```', jsonStart);
+        if (jsonStart > 2 && jsonEnd > jsonStart) {
+          jsonStr = jsonStr.substring(jsonStart, jsonEnd).trim();
+        }
+      }
+      
+      // If it doesn't start with {, try to find the JSON object
+      if (!jsonStr.startsWith('{')) {
+        const jsonStart = jsonStr.indexOf('{');
+        const jsonEnd = jsonStr.lastIndexOf('}') + 1;
+        if (jsonStart !== -1 && jsonEnd > jsonStart) {
+          jsonStr = jsonStr.substring(jsonStart, jsonEnd);
+        }
+      }
+      
+      // Clean up common JSON issues
+      // Remove trailing commas before closing braces/brackets
+      jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
+      
+      return JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Failed to parse JSON from Gemini response:', parseError);
+      console.error('Cleaned JSON string:', jsonStr);
+      console.error('Raw response:', generatedText);
+      throw new Error('Failed to parse startup details from Gemini response');
+    }
   } catch (error) {
     console.error('Error generating startup details:', error);
     throw error;
@@ -93,6 +162,10 @@ export const generateStartupDetails = async (startupName) => {
  */
 export const improveStartupDetails = async (currentDetails) => {
   try {
+    if (!currentDetails || typeof currentDetails !== 'object') {
+      throw new Error('Invalid startup details provided');
+    }
+    
     const prompt = `
       You are an expert business analyst specializing in startup failure analysis.
       I have a startup obituary that I'd like you to improve and enhance with more detailed, insightful content.
@@ -108,17 +181,53 @@ export const improveStartupDetails = async (currentDetails) => {
       
       Keep the same basic facts and structure, but expand and enhance the content significantly.
       Format your response as a JSON object with the same fields as the input.
+      
+      IMPORTANT: Return only the JSON object, without any markdown formatting, code blocks, or additional text.
     `;
 
     const response = await generateContent(prompt);
     const generatedText = response.candidates[0].content.parts[0].text;
     
-    // Extract the JSON object from the response
-    const jsonStart = generatedText.indexOf('{');
-    const jsonEnd = generatedText.lastIndexOf('}') + 1;
-    const jsonStr = generatedText.substring(jsonStart, jsonEnd);
-    
-    return JSON.parse(jsonStr);
+    try {
+      // Extract and clean the JSON from the response
+      let jsonStr = generatedText.trim();
+      
+      // Handle case where response is wrapped in markdown code blocks
+      if (jsonStr.includes('```json')) {
+        const jsonStart = jsonStr.indexOf('```json') + 7;
+        const jsonEnd = jsonStr.indexOf('```', jsonStart);
+        if (jsonStart > 6 && jsonEnd > jsonStart) {
+          jsonStr = jsonStr.substring(jsonStart, jsonEnd).trim();
+        }
+      } else if (jsonStr.includes('```')) {
+        // Handle generic code blocks
+        const jsonStart = jsonStr.indexOf('```') + 3;
+        const jsonEnd = jsonStr.indexOf('```', jsonStart);
+        if (jsonStart > 2 && jsonEnd > jsonStart) {
+          jsonStr = jsonStr.substring(jsonStart, jsonEnd).trim();
+        }
+      }
+      
+      // If it doesn't start with {, try to find the JSON object
+      if (!jsonStr.startsWith('{')) {
+        const jsonStart = jsonStr.indexOf('{');
+        const jsonEnd = jsonStr.lastIndexOf('}') + 1;
+        if (jsonStart !== -1 && jsonEnd > jsonStart) {
+          jsonStr = jsonStr.substring(jsonStart, jsonEnd);
+        }
+      }
+      
+      // Clean up common JSON issues
+      // Remove trailing commas before closing braces/brackets
+      jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
+      
+      return JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Failed to parse JSON from Gemini response:', parseError);
+      console.error('Cleaned JSON string:', jsonStr);
+      console.error('Raw response:', generatedText);
+      throw new Error('Failed to improve startup details: Invalid response format');
+    }
   } catch (error) {
     console.error('Error improving startup details:', error);
     throw error;

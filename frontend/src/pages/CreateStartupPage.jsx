@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import { startupsAPI } from '../lib/api'
@@ -55,18 +55,46 @@ export default function CreateStartupPage() {
   const fileInputRef = useRef(null)
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  
+  // Get pre-filled data from navigation state (if coming from AI form)
+  const prefilledData = location.state?.prefilledData || null
   
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
     trigger,
   } = useForm({
-    mode: 'onChange'
+    mode: 'onChange',
+    defaultValues: prefilledData || {}
   })
 
   const watchedValues = watch()
+
+  // Set form values when pre-filled data is available
+  useEffect(() => {
+    if (prefilledData) {
+      Object.entries(prefilledData).forEach(([key, value]) => {
+        setValue(key, value)
+      })
+      
+      // Show a notification that the form has been pre-filled
+      const notification = document.createElement('div')
+      notification.className = 'fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50'
+      notification.innerHTML = '✅ Form pre-filled with AI-generated content!'
+      document.body.appendChild(notification)
+      
+      // Remove notification after 3 seconds
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification)
+        }
+      }, 3000)
+    }
+  }, [prefilledData, setValue])
 
   const validateStep = async (step) => {
     const fieldsToValidate = {
@@ -296,28 +324,25 @@ export default function CreateStartupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description *
-              </label>
-              <div className="relative">
-                <textarea
-                  {...register('description', { required: 'Description is required' })}
-                  rows={4}
-                  className="input"
-                  placeholder="Brief description of what your startup did..."
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Description *
+                </label>
+                <StartupFormFieldAssistant 
+                  fieldName="Description"
+                  fieldValue={watchedValues.description}
+                  startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry`}
+                  onUpdateField={(newValue) => {
+                    setValue('description', newValue);
+                  }}
                 />
-                <div className="absolute right-2 top-2">
-                  <StartupFormFieldAssistant 
-                    fieldName="Description"
-                    fieldValue={watchedValues.description}
-                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry`}
-                    onUpdateField={(newValue) => {
-                      const event = { target: { value: newValue } };
-                      register('description').onChange(event);
-                    }}
-                  />
-                </div>
               </div>
+              <textarea
+                {...register('description', { required: 'Description is required' })}
+                rows={4}
+                className="input"
+                placeholder="Brief description of what your startup did..."
+              />
               {errors.description && (
                 <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
               )}
@@ -340,28 +365,25 @@ export default function CreateStartupPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Vision
-                </label>
-                <div className="relative">
-                  <input
-                    {...register('vision')}
-                    type="text"
-                    className="input"
-                    placeholder="What was your big vision?"
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Vision
+                  </label>
+                  <StartupFormFieldAssistant 
+                    fieldName="Vision"
+                    fieldValue={watchedValues.vision}
+                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry`}
+                    onUpdateField={(newValue) => {
+                      setValue('vision', newValue);
+                    }}
                   />
-                  <div className="absolute right-2 top-2">
-                    <StartupFormFieldAssistant 
-                      fieldName="Vision"
-                      fieldValue={watchedValues.vision}
-                      startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry`}
-                      onUpdateField={(newValue) => {
-                        const event = { target: { value: newValue } };
-                        register('vision').onChange(event);
-                      }}
-                    />
-                  </div>
                 </div>
+                <input
+                  {...register('vision')}
+                  type="text"
+                  className="input"
+                  placeholder="What was your big vision?"
+                />
               </div>
             </div>
 
@@ -462,34 +484,31 @@ export default function CreateStartupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Autopsy Report *
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Autopsy Report *
+                </label>
+                <StartupFormFieldAssistant 
+                  fieldName="Autopsy Report"
+                  fieldValue={watchedValues.autopsy_report}
+                  startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with failure reason: ${watchedValues.primary_failure_reason || 'unknown'}`}
+                  onUpdateField={(newValue) => {
+                    setValue('autopsy_report', newValue);
+                  }}
+                />
+              </div>
               <div className="flex items-start space-x-2 mb-2">
                 <InformationCircleIcon className="h-5 w-5 text-blue-500 mt-0.5" />
                 <p className="text-sm text-gray-600">
                   Provide a detailed analysis of what went wrong. Be honest and specific.
                 </p>
               </div>
-              <div className="relative">
-                <textarea
-                  {...register('autopsy_report', { required: 'Autopsy report is required' })}
-                  rows={6}
-                  className="input"
-                  placeholder="Describe in detail what led to the failure. What were the warning signs? What decisions contributed to the downfall?"
-                />
-                <div className="absolute right-2 top-2">
-                  <StartupFormFieldAssistant 
-                    fieldName="Autopsy Report"
-                    fieldValue={watchedValues.autopsy_report}
-                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with failure reason: ${watchedValues.primary_failure_reason || 'unknown'}`}
-                    onUpdateField={(newValue) => {
-                      const event = { target: { value: newValue } };
-                      register('autopsy_report').onChange(event);
-                    }}
-                  />
-                </div>
-              </div>
+              <textarea
+                {...register('autopsy_report', { required: 'Autopsy report is required' })}
+                rows={6}
+                className="input"
+                placeholder="Describe in detail what led to the failure. What were the warning signs? What decisions contributed to the downfall?"
+              />
               {errors.autopsy_report && (
                 <p className="mt-1 text-sm text-red-600">{errors.autopsy_report.message}</p>
               )}
@@ -527,28 +546,25 @@ export default function CreateStartupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Peak Metrics
-              </label>
-              <div className="relative">
-                <textarea
-                  {...register('peak_metrics')}
-                  rows={3}
-                  className="input"
-                  placeholder="e.g., 10K users, $50K MRR, 500K page views/month"
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Peak Metrics
+                </label>
+                <StartupFormFieldAssistant 
+                  fieldName="Peak Metrics"
+                  fieldValue={watchedValues.peak_metrics}
+                  startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with stage: ${watchedValues.stage_at_death || 'unknown'} and funding: ${watchedValues.funding_amount_usd || 'unknown'}`}
+                  onUpdateField={(newValue) => {
+                    setValue('peak_metrics', newValue);
+                  }}
                 />
-                <div className="absolute right-2 top-2">
-                  <StartupFormFieldAssistant 
-                    fieldName="Peak Metrics"
-                    fieldValue={watchedValues.peak_metrics}
-                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with stage: ${watchedValues.stage_at_death || 'unknown'} and funding: ${watchedValues.funding_amount_usd || 'unknown'}`}
-                    onUpdateField={(newValue) => {
-                      const event = { target: { value: newValue } };
-                      register('peak_metrics').onChange(event);
-                    }}
-                  />
-                </div>
               </div>
+              <textarea
+                {...register('peak_metrics')}
+                rows={3}
+                className="input"
+                placeholder="e.g., 10K users, $50K MRR, 500K page views/month"
+              />
               <p className="mt-1 text-sm text-gray-500">Describe your best metrics before the decline</p>
             </div>
 
@@ -571,62 +587,58 @@ export default function CreateStartupPage() {
         return (
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lessons Learned *
-              </label>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="block text-sm font-medium text-gray-700 flex-1">
+                  Lessons Learned *
+                </label>
+                <StartupFormFieldAssistant 
+                  fieldName="Lessons Learned"
+                  fieldValue={watchedValues.lessons_learned}
+                  startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with failure reason: ${watchedValues.primary_failure_reason || 'unknown'} and autopsy report: ${watchedValues.autopsy_report?.substring(0, 200) || 'not provided'}`}
+                  onUpdateField={(newValue) => {
+                    const event = { target: { value: newValue } };
+                    register('lessons_learned').onChange(event);
+                  }}
+                />
+              </div>
               <div className="flex items-start space-x-2 mb-2">
                 <InformationCircleIcon className="h-5 w-5 text-blue-500 mt-0.5" />
                 <p className="text-sm text-gray-600">
                   Share the key insights and lessons that others can learn from your experience.
                 </p>
               </div>
-              <div className="relative">
-                <textarea
-                  {...register('lessons_learned', { required: 'Please share your lessons learned' })}
-                  rows={6}
-                  className="input"
-                  placeholder="What would you do differently? What advice would you give to other founders? What patterns did you notice?"
-                />
-                <div className="absolute right-2 top-2">
-                  <StartupFormFieldAssistant 
-                    fieldName="Lessons Learned"
-                    fieldValue={watchedValues.lessons_learned}
-                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with failure reason: ${watchedValues.primary_failure_reason || 'unknown'} and autopsy report: ${watchedValues.autopsy_report?.substring(0, 200) || 'not provided'}`}
-                    onUpdateField={(newValue) => {
-                      const event = { target: { value: newValue } };
-                      register('lessons_learned').onChange(event);
-                    }}
-                  />
-                </div>
-              </div>
+              <textarea
+                {...register('lessons_learned', { required: 'Please share your lessons learned' })}
+                rows={6}
+                className="input"
+                placeholder="What would you do differently? What advice would you give to other founders? What patterns did you notice?"
+              />
               {errors.lessons_learned && (
                 <p className="mt-1 text-sm text-red-600">{errors.lessons_learned.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Advice for Founders
-              </label>
-              <div className="relative">
-                <textarea
-                  {...register('advice_for_founders')}
-                  rows={4}
-                  className="input"
-                  placeholder="Any specific advice you'd give to founders in similar situations?"
+              <div className="flex items-center gap-2 mb-2">
+                <label className="block text-sm font-medium text-gray-700 flex-1">
+                  Advice for Founders
+                </label>
+                <StartupFormFieldAssistant 
+                  fieldName="Advice for Founders"
+                  fieldValue={watchedValues.advice_for_founders}
+                  startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with lessons learned: ${watchedValues.lessons_learned || 'not provided'}`}
+                  onUpdateField={(newValue) => {
+                    const event = { target: { value: newValue } };
+                    register('advice_for_founders').onChange(event);
+                  }}
                 />
-                <div className="absolute right-2 top-2">
-                  <StartupFormFieldAssistant 
-                    fieldName="Advice for Founders"
-                    fieldValue={watchedValues.advice_for_founders}
-                    startupContext={`${watchedValues.name || 'Startup'} in ${watchedValues.industry || 'tech'} industry with lessons learned: ${watchedValues.lessons_learned || 'not provided'}`}
-                    onUpdateField={(newValue) => {
-                      const event = { target: { value: newValue } };
-                      register('advice_for_founders').onChange(event);
-                    }}
-                  />
-                </div>
               </div>
+              <textarea
+                {...register('advice_for_founders')}
+                rows={4}
+                className="input"
+                placeholder="Any specific advice you'd give to founders in similar situations?"
+              />
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

@@ -1,11 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
 import { generateContent } from '../lib/gemini';
 import {
   SparklesIcon,
-  ArrowPathIcon,
-  LightBulbIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
 
@@ -26,7 +22,10 @@ const improveField = async (field, value, context) => {
       Your response should be just the improved text, nothing else - no comments, no markup.
     `;
 
-    const response = await generateContent(prompt);
+        const response = await generateContent(prompt);
+    if (!response.candidates || !response.candidates[0]?.content?.parts?.[0]?.text) {
+      throw new Error('Unexpected API response format');
+    }
     return response.candidates[0].content.parts[0].text.trim();
   } catch (error) {
     console.error(`Error improving ${field}:`, error);
@@ -66,7 +65,8 @@ export default function StartupFormFieldAssistant({
       
     } catch (err) {
       console.error('Error improving content:', err);
-      // You could add error handling UI here
+      // Show error in console for debugging but don't disturb user experience with alerts
+      // In a production app, you might want to add a toast notification here
     } finally {
       setIsImproving(false);
     }
