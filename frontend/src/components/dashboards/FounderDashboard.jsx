@@ -45,7 +45,7 @@ const itemVariants = {
 }
 
 export default function FounderDashboard() {
-  const { user } = useAuthStore()
+  const { user, profile } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [myStartups, setMyStartups] = useState([])
   const [teamMemberships, setTeamMemberships] = useState([])
@@ -123,7 +123,7 @@ export default function FounderDashboard() {
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back, {user?.first_name}! 👋
+            Welcome back, {profile?.first_name || user?.displayName?.split(' ')[0]}! 👋
           </h1>
           <p className="text-gray-600 mt-2">
             Manage your startups, track performance, and engage with the community

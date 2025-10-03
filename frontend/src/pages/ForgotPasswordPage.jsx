@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EnvelopeIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { authAPI } from '../lib/api';
+import { useAuthStore } from '../stores/authStore';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const { resetPassword } = useAuthStore();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,11 +17,15 @@ export default function ForgotPasswordPage() {
     setMessage('');
 
     try {
-      const response = await authAPI.forgotPassword(email);
-      setMessage(response.data.message);
-      setEmail(''); // Clear form
+      const result = await resetPassword(email);
+      if (result.success) {
+        setMessage('Password reset email sent! Check your inbox.');
+        setEmail(''); // Clear form
+      } else {
+        setError(result.error || 'Failed to send reset email');
+      }
     } catch (error) {
-      setError(error.response?.data?.error || 'Failed to send reset email');
+      setError('Failed to send reset email');
     } finally {
       setLoading(false);
     }

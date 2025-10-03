@@ -8,10 +8,11 @@ import {
   ChevronDownIcon 
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../stores/authStore'
+import LogoText from './ui/LogoText'
 import { cn } from '../lib/utils'
 
 export default function Navbar() {
-  const { user, logout } = useAuthStore()
+  const { user, profile, logout } = useAuthStore()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -24,14 +25,8 @@ export default function Navbar() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 justify-between">
           <div className="flex items-center">
-            <Link to="/dashboard" className="flex items-center">
-              <div className="flex-shrink-0">
-                <span className="text-2xl font-bold text-primary-600">💀</span>
-              </div>
-              <div className="ml-2">
-                <h1 className="text-xl font-bold text-gray-900">Startup Obituaries</h1>
-                <p className="text-xs text-gray-500 hidden sm:block">Where failure becomes wisdom</p>
-              </div>
+            <Link to="/dashboard">
+              <LogoText size="md" animated={false} />
             </Link>
           </div>
 
@@ -48,7 +43,7 @@ export default function Navbar() {
                 <Menu.Button className="flex items-center space-x-2 rounded-full bg-white p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
                   <UserCircleIcon className="h-8 w-8 text-gray-400" />
                   <span className="hidden md:block text-gray-700 font-medium">
-                    {user?.first_name || user?.username}
+                    {profile?.first_name || profile?.username || user?.displayName}
                   </span>
                   <ChevronDownIcon className="h-4 w-4 text-gray-400" />
                 </Menu.Button>

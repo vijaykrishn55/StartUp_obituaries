@@ -7,6 +7,8 @@ import {
   LightBulbIcon,
   HeartIcon
 } from '@heroicons/react/24/outline'
+import LogoText from '../components/ui/LogoText'
+import Logo from '../components/ui/Logo'
 
 const features = [
   {
@@ -42,12 +44,11 @@ export default function LandingPage() {
   return (
     <div className="bg-white">
       {/* Header */}
-      <header className="absolute inset-x-0 top-0 z-50">
+      <header className="fixed inset-x-0 top-0 z-50 bg-white/70 backdrop-blur-lg">
         <nav className="flex items-center justify-between p-6 lg:px-8" aria-label="Global">
           <div className="flex lg:flex-1">
-            <Link to="/" className="flex items-center -m-1.5 p-1.5">
-              <span className="text-2xl">💀</span>
-              <span className="ml-2 text-xl font-bold text-gray-900">Startup Obituaries</span>
+            <Link to="/" className="-m-1.5 p-1.5">
+              <LogoText size="lg" animated={true} />
             </Link>
           </div>
           <div className="flex lg:flex-1 lg:justify-end space-x-4">
@@ -69,10 +70,11 @@ export default function LandingPage() {
         
         <div className="mx-auto max-w-2xl py-32 sm:py-48 lg:py-56">
           <div className="text-center">
+            
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
+              transition={{ duration: 0.8, delay: 1.2 }}
               className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl"
             >
               Where Failure Becomes{' '}
@@ -82,8 +84,8 @@ export default function LandingPage() {
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="mt-6 text-lg leading-8 text-gray-600"
+              transition={{ duration: 0.8, delay: 1.4 }}
+              className="mt-8 text-lg leading-8 text-gray-600 max-w-2xl mx-auto"
             >
               Share your startup's story, learn from others' failures, and build meaningful connections 
               in the entrepreneurial community. Turn setbacks into comebacks.
@@ -92,8 +94,8 @@ export default function LandingPage() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="mt-10 flex items-center justify-center gap-x-6"
+              transition={{ duration: 0.8, delay: 1.6 }}
+              className="mt-12 flex items-center justify-center gap-x-6"
             >
               <Link to="/register" className="btn-primary text-lg px-8 py-3">
                 Share Your Story
@@ -171,21 +173,53 @@ export default function LandingPage() {
       <div className="bg-primary-600">
         <div className="px-6 py-24 sm:px-6 sm:py-32 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            {/* Animated logo for CTA section */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              whileInView={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="flex justify-center mb-8"
+            >
+              <Logo 
+                size="xl" 
+                animated={true} 
+                variant="default"
+                className="drop-shadow-xl filter brightness-110 contrast-110"
+              />
+            </motion.div>
+            
+            <motion.h2 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="text-3xl font-bold tracking-tight text-white sm:text-4xl"
+            >
               Ready to share your story?
-            </h2>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-primary-100">
+            </motion.h2>
+            
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="mx-auto mt-6 max-w-xl text-lg leading-8 text-primary-100"
+            >
               Join thousands of entrepreneurs who are turning their failures into valuable lessons 
               for the community.
-            </p>
-            <div className="mt-10 flex items-center justify-center gap-x-6">
+            </motion.p>
+            
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.7 }}
+              className="mt-10 flex items-center justify-center gap-x-6"
+            >
               <Link to="/register" className="btn bg-white text-primary-600 hover:bg-gray-50 focus:ring-white">
                 Get started today
               </Link>
               <Link to="/login" className="text-sm font-semibold leading-6 text-white hover:text-primary-100">
                 Already have an account? <span aria-hidden="true">→</span>
               </Link>
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>

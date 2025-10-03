@@ -1,4 +1,6 @@
 import axios from 'axios'
+import { getIdToken } from 'firebase/auth'
+import { auth } from '../config/firebase'
 
 const API_BASE_URL = 'http://localhost:3000/api'
 
@@ -10,11 +12,15 @@ const api = axios.create({
   },
 })
 
-// Add auth token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+// Add Firebase auth token to requests
+api.interceptors.request.use(async (config) => {
+  if (auth.currentUser) {
+    try {
+      const token = await getIdToken(auth.currentUser)
+      config.headers.Authorization = `Bearer ${token}`
+    } catch (error) {
+      console.error('Failed to get Firebase token:', error)
+    }
   }
   return config
 })
@@ -24,21 +30,47 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+      // Firebase auth will handle redirect
+      console.error('Authentication error:', error)
     }
     return Promise.reject(error)
   }
 )
 
-// Auth API
+// Auth API (Firebase-based)
 export const authAPI = {
-  login: (credentials) => api.post('/auth/login', credentials),
-  register: (userData) => api.post('/auth/register', userData),
   getProfile: () => api.get('/auth/me'),
   updateProfile: (profileData) => api.put('/auth/profile', profileData),
-  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
-  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
+  register: (userData) => api.post('/auth/register', userData),
+  
+  // If your backend doesn't have a /auth/me endpoint, 
+  // we'll use the Firebase user info and local storage as a fallback
+  getProfileFallback: async () => {
+    // This is a fallback method when backend doesn't support Firebase auth yet
+    const user = auth.currentUser;
+    if (!user) throw new Error('No authenticated user');
+    
+    // Check if we have cached user data
+    const cachedProfile = localStorage.getItem(`user_profile_${user.uid}`);
+    if (cachedProfile) {
+      return { data: { user: JSON.parse(cachedProfile) } };
+    }
+    
+    // If no cached data, return a minimal profile based on Firebase user
+    const minimalProfile = {
+      id: user.uid,
+      email: user.email,
+      username: user.displayName || user.email.split('@')[0],
+      first_name: user.displayName ? user.displayName.split(' ')[0] : '',
+      last_name: user.displayName ? user.displayName.split(' ').slice(1).join(' ') : '',
+      photo_url: user.photoURL || '',
+      firebase_user: true
+    };
+    
+    // Cache this minimal profile
+    localStorage.setItem(`user_profile_${user.uid}`, JSON.stringify(minimalProfile));
+    return { data: { user: minimalProfile } };
+  }
 }
 
 // Users API

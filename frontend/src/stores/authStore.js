@@ -1,104 +1,98 @@
 import { create } from 'zustand'
-import { authAPI, usersAPI } from '../lib/api'
+import useFirebaseAuth from '../hooks/useFirebaseAuth'
+
+// Firebase-based auth store that wraps the Firebase auth hook
+let firebaseAuthInstance = null
 
 export const useAuthStore = create((set, get) => ({
   user: null,
-  isLoading: false,
+  profile: null,
+  isLoading: true,
   error: null,
+  firebaseAuth: null,
 
-  // Initialize auth state from localStorage
+  // Initialize Firebase auth
   initialize: () => {
-    const token = localStorage.getItem('token')
-    const userData = localStorage.getItem('user')
-    
-    if (token && userData) {
-      try {
-        const user = JSON.parse(userData)
-        set({ user })
-        // Verify token is still valid
-        get().verifyToken()
-      } catch (error) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-      }
-    }
+    // This will be called by the component that uses the store
+    // The actual Firebase auth state is managed by the useFirebaseAuth hook
   },
 
-  // Verify token validity
-  verifyToken: async () => {
-    try {
-      const response = await authAPI.getProfile()
-      set({ user: response.data.user })
-    } catch (error) {
-      get().logout()
-    }
+  // Set Firebase auth instance
+  setFirebaseAuth: (authInstance) => {
+    firebaseAuthInstance = authInstance
+    set({ 
+      user: authInstance.user,
+      profile: authInstance.profile,
+      isLoading: authInstance.loading,
+      error: authInstance.error,
+      firebaseAuth: authInstance
+    })
   },
 
-  // Login
+  // Login using Firebase
   login: async (credentials) => {
-    set({ isLoading: true, error: null })
-    try {
-      const response = await authAPI.login(credentials)
-      const { token, user } = response.data
-      
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(user))
-      
-      set({ user, isLoading: false })
-      return { success: true }
-    } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Login failed'
-      set({ error: errorMessage, isLoading: false })
-      return { success: false, error: errorMessage }
+    if (firebaseAuthInstance) {
+      return await firebaseAuthInstance.login(credentials.email, credentials.password)
     }
+    return { success: false, error: 'Firebase auth not initialized' }
   },
 
-  // Register
+  // Register using Firebase
   register: async (userData) => {
-    set({ isLoading: true, error: null })
-    try {
-      const response = await authAPI.register(userData)
-      const { token, user } = response.data
-      
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(user))
-      
-      set({ user, isLoading: false })
-      return { success: true }
-    } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Registration failed'
-      set({ error: errorMessage, isLoading: false })
-      return { success: false, error: errorMessage }
+    if (firebaseAuthInstance) {
+      const { first_name, last_name, email, password, ...rest } = userData
+      return await firebaseAuthInstance.register(email, password, {
+        firstName: first_name,
+        lastName: last_name,
+        ...rest
+      })
     }
+    return { success: false, error: 'Firebase auth not initialized' }
   },
 
-  // Logout
-  logout: () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    set({ user: null, error: null })
+  // Login with Google
+  loginWithGoogle: async () => {
+    if (firebaseAuthInstance) {
+      return await firebaseAuthInstance.loginWithGoogle()
+    }
+    return { success: false, error: 'Firebase auth not initialized' }
+  },
+
+  // Logout using Firebase
+  logout: async () => {
+    if (firebaseAuthInstance) {
+      return await firebaseAuthInstance.logout()
+    }
+    set({ user: null, profile: null, error: null })
+    return { success: true }
+  },
+
+  // Reset password using Firebase
+  resetPassword: async (email) => {
+    if (firebaseAuthInstance) {
+      return await firebaseAuthInstance.resetPassword(email)
+    }
+    return { success: false, error: 'Firebase auth not initialized' }
   },
 
   // Update user profile
   updateProfile: async (profileData) => {
-    set({ isLoading: true, error: null })
-    try {
-      const response = await usersAPI.updateProfile(profileData)
-      const updatedUser = response.data
-      
-      localStorage.setItem('user', JSON.stringify(updatedUser))
-      set({ user: updatedUser, isLoading: false })
-      return { success: true }
-    } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Profile update failed'
-      set({ error: errorMessage, isLoading: false })
-      return { success: false, error: errorMessage }
+    if (firebaseAuthInstance) {
+      return await firebaseAuthInstance.updateUserProfile(profileData)
     }
+    return { success: false, error: 'Firebase auth not initialized' }
+  },
+
+  // Complete registration
+  completeRegistration: async (userData) => {
+    if (firebaseAuthInstance) {
+      return await firebaseAuthInstance.completeRegistration(userData)
+    }
+    return { success: false, error: 'Firebase auth not initialized' }
   },
 
   // Clear error
   clearError: () => set({ error: null }),
 }))
 
-// Initialize auth state when store is created
-useAuthStore.getState().initialize()
+
