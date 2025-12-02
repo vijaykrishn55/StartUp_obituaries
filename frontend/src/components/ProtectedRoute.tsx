@@ -26,8 +26,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (allowedUserTypes && user && !allowedUserTypes.includes(user.userType)) {
     // Redirect to appropriate dashboard based on user type
-    const dashboardRoute = user.userType === 'investor' ? '/investor-dashboard' : '/dashboard';
-    return <Navigate to={dashboardRoute} replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

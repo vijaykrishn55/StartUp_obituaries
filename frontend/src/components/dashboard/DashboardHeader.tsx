@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Rocket, Search, Users, Bell, Settings, LogOut, User, MessageSquare, Home } from "lucide-react";
+import { Rocket, Search, Users, Bell, Settings, LogOut, User, MessageSquare, Home, Sparkles, MapPin, Package, Video } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface DashboardHeaderProps {
@@ -60,7 +60,7 @@ export const DashboardHeader = ({ onHomeClick, onNetworkClick, onMessageClick, a
           {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
             <Rocket className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold text-foreground hidden sm:inline">Rebound</span>
+            <span className="text-xl font-bold text-foreground hidden sm:inline">StartUp Obituaries</span>
           </div>
 
           {/* Search Bar */}
@@ -134,6 +134,40 @@ export const DashboardHeader = ({ onHomeClick, onNetworkClick, onMessageClick, a
                 </Badge>
               )}
             </Button>
+
+            {/* Features Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" title="Features">
+                  <Sparkles className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>Exclusive Features</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/failure-heatmap')} className="cursor-pointer">
+                  <MapPin className="mr-2 h-4 w-4 text-orange-500" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">Failure Heatmap</span>
+                    <span className="text-xs text-muted-foreground">Geographic failure insights</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/marketplace')} className="cursor-pointer">
+                  <Package className="mr-2 h-4 w-4 text-green-500" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">Asset Marketplace</span>
+                    <span className="text-xs text-muted-foreground">Buy/sell startup assets</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/war-rooms')} className="cursor-pointer">
+                  <Video className="mr-2 h-4 w-4 text-red-500" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">Live War Rooms</span>
+                    <span className="text-xs text-muted-foreground">Real-time crisis support</span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Profile Dropdown */}
             <DropdownMenu>

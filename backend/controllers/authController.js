@@ -34,8 +34,10 @@ exports.register = async (req, res) => {
     user.refreshToken = refreshToken;
     await user.save();
 
-    // Send welcome email
-    await sendWelcomeEmail(user);
+    // Send welcome email (non-blocking, optional feature)
+    sendWelcomeEmail(user).catch(err => {
+      // Email failure is non-critical, user registration still succeeds
+    });
 
     // Return user data and token
     successResponse(res, {
@@ -182,7 +184,12 @@ exports.forgotPassword = async (req, res) => {
     await user.save();
 
     // Send email
-    await sendPasswordResetEmail(user, resetToken);
+    const emailResult = await sendPasswordResetEmail(user, resetToken);
+    
+    if (!emailResult.success) {
+      console.warn('Password reset email failed:', emailResult.error);
+      return successResponse(res, null, 'Password reset token generated. Email service is currently unavailable, please contact support.');
+    }
 
     successResponse(res, null, 'Password reset email sent');
 

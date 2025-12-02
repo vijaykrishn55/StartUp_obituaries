@@ -37,41 +37,55 @@ export const JoinNowDialog = ({ open, onOpenChange }: JoinNowDialogProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!userType) {
-      toast({
-        title: "Please select a user type",
-        variant: "destructive",
-      });
+    // Frontend validation
+    if (!name.trim() || name.length < 2) {
+      toast({ title: "Name must be at least 2 characters.", variant: "destructive" });
       return;
     }
-
+    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
+      toast({ title: "Please enter a valid email address.", variant: "destructive" });
+      return;
+    }
+    if (!password || password.length < 8) {
+      toast({ title: "Password must be at least 8 characters.", variant: "destructive" });
+      return;
+    }
+    if (!userType) {
+      toast({ title: "Please select a user type", variant: "destructive" });
+      return;
+    }
     setIsLoading(true);
-
     try {
       await register(name, email, password, userType);
       
       toast({
         title: "Account created successfully!",
-        description: `Welcome to Rebound, ${name}!`,
+        description: `Welcome to StartUp Obituaries, ${name}!`,
       });
-      
       onOpenChange(false);
       
-      // Route based on user type
-      const dashboardRoute = userType === "investor" ? "/investor-dashboard" : "/dashboard";
-      
+      // Clear form
       setName("");
       setEmail("");
       setPassword("");
       setUserType("");
-      navigate(dashboardRoute);
-    } catch (error) {
-      toast({
-        title: "Registration failed",
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
+      
+      // Small delay to ensure state is updated before navigation
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 100);
+    } catch (error: any) {
+      let message = error instanceof Error ? error.message : "Please try again.";
+      if (message.includes("User already exists")) {
+        message = "An account with this email already exists.";
+      } else if (message.includes("required")) {
+        message = "Please fill in all required fields.";
+      } else if (message.includes("valid email")) {
+        message = "Please enter a valid email address.";
+      } else if (message.includes("Password")) {
+        message = "Password must be at least 8 characters.";
+      }
+      toast({ title: "Registration failed", description: message, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +95,7 @@ export const JoinNowDialog = ({ open, onOpenChange }: JoinNowDialogProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Join Rebound</DialogTitle>
+          <DialogTitle>Join StartUp Obituaries</DialogTitle>
           <DialogDescription>
             Create your account and start connecting with the startup community.
           </DialogDescription>

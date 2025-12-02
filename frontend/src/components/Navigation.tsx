@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Menu, X, LogOut, User, Home, Briefcase, Users, TrendingUp, MessageSquare } from "lucide-react";
+import { Menu, X, LogOut, User, Home, Briefcase, Users, TrendingUp, MessageSquare, MapPin, Package, Video } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -30,14 +30,7 @@ const Navigation = () => {
     navigate("/");
   };
 
-  const getDashboardRoute = () => {
-    return user?.userType === 'investor' ? '/investor-dashboard' : '/dashboard';
-  };
-
   const isActive = (path: string) => {
-    if (path === getDashboardRoute()) {
-      return location.pathname === '/dashboard' || location.pathname === '/investor-dashboard';
-    }
     return location.pathname === path;
   };
 
@@ -46,7 +39,7 @@ const Navigation = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <button onClick={() => navigate('/')} className="flex items-center gap-3 cursor-pointer group">
+          <button onClick={() => navigate(isAuthenticated ? '/dashboard' : '/')} className="flex items-center gap-3 cursor-pointer group">
             <svg 
               className="h-9 w-9 transition-all group-hover:scale-110" 
               viewBox="0 0 40 40" 
@@ -126,9 +119,9 @@ const Navigation = () => {
             {isAuthenticated && user ? (
               <>
                 <Button
-                  variant={isActive(getDashboardRoute()) ? "default" : "ghost"}
+                  variant={isActive('/dashboard') ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => navigate(getDashboardRoute())}
+                  onClick={() => navigate('/dashboard')}
                   title="Home"
                   className="w-10 h-10 p-0"
                 >
@@ -161,6 +154,36 @@ const Navigation = () => {
                 >
                   <Briefcase className="h-5 w-5" />
                 </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-1">
+                      More
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => navigate('/failure-heatmap')}>
+                      <MapPin className="mr-2 h-4 w-4 text-orange-500" />
+                      <div>
+                        <div className="font-medium">Failure Heatmap</div>
+                        <div className="text-xs text-muted-foreground">Learn from failures</div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/marketplace')}>
+                      <Package className="mr-2 h-4 w-4 text-green-500" />
+                      <div>
+                        <div className="font-medium">Marketplace</div>
+                        <div className="text-xs text-muted-foreground">Buy/sell assets</div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/war-rooms')}>
+                      <Video className="mr-2 h-4 w-4 text-red-500" />
+                      <div>
+                        <div className="font-medium">War Rooms</div>
+                        <div className="text-xs text-muted-foreground">Live support</div>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <NotificationDropdown />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -222,7 +245,7 @@ const Navigation = () => {
             <div className="flex flex-col gap-4">
               {isAuthenticated && (
                 <NavLink
-                  to={getDashboardRoute()}
+                  to="/dashboard"
                   className="flex items-center gap-3 text-sm font-medium text-muted-foreground"
                   activeClassName="text-foreground"
                   onClick={() => setMobileMenuOpen(false)}
@@ -258,6 +281,36 @@ const Navigation = () => {
                 <Briefcase className="h-5 w-5" />
                 Jobs
               </NavLink>
+              <div className="pt-2 border-t">
+                <p className="text-xs font-semibold text-muted-foreground mb-2 px-3">More Features</p>
+                <NavLink
+                  to="/failure-heatmap"
+                  className="flex items-center gap-3 text-sm font-medium text-muted-foreground"
+                  activeClassName="text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <MapPin className="h-5 w-5 text-orange-500" />
+                  Failure Heatmap
+                </NavLink>
+                <NavLink
+                  to="/marketplace"
+                  className="flex items-center gap-3 text-sm font-medium text-muted-foreground mt-3"
+                  activeClassName="text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Package className="h-5 w-5 text-green-500" />
+                  Marketplace
+                </NavLink>
+                <NavLink
+                  to="/war-rooms"
+                  className="flex items-center gap-3 text-sm font-medium text-muted-foreground mt-3"
+                  activeClassName="text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Video className="h-5 w-5 text-red-500" />
+                  War Rooms
+                </NavLink>
+              </div>
               <div className="flex flex-col gap-2 pt-2 border-t">
                 {isAuthenticated && user ? (
                   <>

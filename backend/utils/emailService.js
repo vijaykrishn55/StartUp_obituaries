@@ -1,17 +1,45 @@
 const nodemailer = require('nodemailer');
 
-// Create transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+// Check if email is configured
+const isEmailConfigured = () => {
+  return (
+    process.env.SMTP_HOST &&
+    process.env.SMTP_PORT &&
+    process.env.SMTP_USER &&
+    process.env.SMTP_PASS &&
+    process.env.EMAIL_FROM
+  );
+};
+
+// Create transporter only if configured
+let transporter = null;
+if (isEmailConfigured()) {
+  try {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: process.env.SMTP_PORT == 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+  } catch (error) {
+    console.warn('Email transporter initialization failed:', error.message);
   }
-});
+}
 
 // Send email
 exports.sendEmail = async (options) => {
+  // If email is not configured, log and return gracefully
+  if (!transporter) {
+    console.log('Email service not configured. Email not sent to:', options.to);
+    return { success: false, error: 'Email service not configured' };
+  }
+
   const mailOptions = {
     from: process.env.EMAIL_FROM,
     to: options.to,
@@ -21,9 +49,11 @@ exports.sendEmail = async (options) => {
 
   try {
     await transporter.sendMail(mailOptions);
+    console.log('✓ Email sent successfully to:', options.to);
     return { success: true };
   } catch (error) {
-    console.error('Email send error:', error);
+    console.log('ℹ Email not sent (email service unavailable):', options.to);
+    console.log('  Tip: Configure SMTP settings in .env to enable emails');
     return { success: false, error: error.message };
   }
 };

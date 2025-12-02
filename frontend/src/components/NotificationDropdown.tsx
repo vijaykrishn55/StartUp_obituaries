@@ -27,7 +27,8 @@ export const NotificationDropdown = () => {
     try {
       setLoading(true);
       const data: any = await api.getNotifications({ limit: 20 });
-      const notifs = data.notifications || data || [];
+      const list = (data && (data.data ?? data.notifications)) ?? data;
+      const notifs = Array.isArray(list) ? list : Array.isArray(list?.items) ? list.items : [];
       setNotifications(notifs);
       setUnreadCount(notifs.filter((n: any) => !n.read).length);
     } catch (error: any) {

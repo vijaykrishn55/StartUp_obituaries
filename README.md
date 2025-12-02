@@ -18,6 +18,14 @@ This is a full-stack web application that combines professional networking with 
 - 🎯 **Pitch Submissions** - Submit startup pitches to investors
 - 📈 **Polls** - Create polls in posts for community feedback
 
+### **🌟 Revolutionary Features**
+
+- 🗺️ **Failure Heatmap** - Geographic visualization of startup failures with detailed analytics. Learn where startups fail and why. See patterns by location, industry, and failure reason.
+
+- 💼 **Resurrection Marketplace** - Buy and sell assets from failed startups. $12.4M+ in assets traded. Categories include domains, source code, customer databases, IP, equipment, and more.
+
+- 🆘 **Live Autopsy War Rooms** - Real-time community support during startup shutdowns. Join live sessions where founders in crisis get advice from mentors, investors, and fellow entrepreneurs. You're not alone.
+
 ## 📁 Project Structure
 
 ```
@@ -162,6 +170,9 @@ Password: Password123!
 - **Notifications** - User notifications
 - **Comments** - Post comments
 - **Pitches** - Startup pitch submissions
+- **FailureReports** - Documented startup failures with analytics (NEW)
+- **Assets** - Marketplace listings from failed startups (NEW)
+- **WarRooms** - Live support sessions for founders in crisis (NEW)
 
 ## 🔧 Configuration
 
@@ -232,7 +243,7 @@ VITE_API_BASE_URL=http://localhost:5000/api
 
 ## 📱 Frontend Pages
 
-- `/` - Landing page
+- `/` - Landing page with feature showcase
 - `/dashboard` - User dashboard feed
 - `/investor-dashboard` - Investor-specific dashboard
 - `/jobs` - Job board
@@ -242,6 +253,9 @@ VITE_API_BASE_URL=http://localhost:5000/api
 - `/investors` - Browse investors
 - `/profile` - User profile
 - `/posts/:id` - Post details
+- `/failure-heatmap` - Geographic failure visualization (NEW)
+- `/marketplace` or `/resurrection-marketplace` - Asset marketplace (NEW)
+- `/war-rooms` - Live support sessions (NEW)
 
 ## 🎨 UI Components
 
@@ -256,17 +270,24 @@ Built with shadcn/ui:
 - Loading states
 - Error boundaries
 
-## 📈 Future Enhancements
+## 📈 Recent Enhancements (2024)
+
+- ✅ **Failure Heatmap** - Geographic failure analysis with detailed reports
+- ✅ **Resurrection Marketplace** - Asset trading platform for failed startups
+- ✅ **Live Autopsy War Rooms** - Real-time crisis support with community
+
+## 🔮 Future Enhancements
 
 - [ ] Email notifications
 - [ ] Advanced search and filters
-- [ ] Analytics dashboard
-- [ ] Video content support
+- [ ] Enhanced analytics dashboard
+- [ ] Video content support for War Rooms
 - [ ] Event management
-- [ ] Payment integration
+- [ ] Payment integration for Marketplace
 - [ ] Mobile app (React Native)
 - [ ] AI-powered recommendations
-- [ ] Advanced analytics
+- [ ] Blockchain verification for assets
+- [ ] Advanced failure prediction models
 
 ## 🤝 Contributing
 

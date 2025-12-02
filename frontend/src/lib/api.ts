@@ -342,4 +342,188 @@ export const api = {
     if (params?.limit) query.append('limit', params.limit.toString());
     return apiFetch(`/pitches?${query}`);
   },
+
+  // Failure Reports (Failure Heatmap)
+  getFailureReports: (params?: { 
+    industry?: string; 
+    reason?: string; 
+    country?: string; 
+    page?: number; 
+    limit?: number 
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.industry) query.append('industry', params.industry);
+    if (params?.reason) query.append('reason', params.reason);
+    if (params?.country) query.append('country', params.country);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+    return apiFetch(`/failure-reports?${query}`);
+  },
+
+  getFailureReportById: (id: string) => apiFetch(`/failure-reports/${id}`),
+
+  createFailureReport: (data: any) =>
+    apiFetch('/failure-reports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getHeatmapData: (params?: { industry?: string; reason?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.industry) query.append('industry', params.industry);
+    if (params?.reason) query.append('reason', params.reason);
+    return apiFetch(`/failure-reports/heatmap?${query}`);
+  },
+
+  getFailureAnalytics: () => apiFetch('/failure-reports/analytics'),
+
+  addFailureComment: (id: string, text: string) =>
+    apiFetch(`/failure-reports/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+
+  markFailureHelpful: (id: string) =>
+    apiFetch(`/failure-reports/${id}/helpful`, {
+      method: 'POST',
+    }),
+
+  // Assets (Resurrection Marketplace)
+  getAssets: (params?: { 
+    category?: string; 
+    minPrice?: number; 
+    maxPrice?: number; 
+    search?: string;
+    page?: number; 
+    limit?: number 
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.category) query.append('category', params.category);
+    if (params?.minPrice) query.append('minPrice', params.minPrice.toString());
+    if (params?.maxPrice) query.append('maxPrice', params.maxPrice.toString());
+    if (params?.search) query.append('search', params.search);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+    return apiFetch(`/assets?${query}`);
+  },
+
+  getAssetById: (id: string) => apiFetch(`/assets/${id}`),
+
+  createAsset: (data: any) =>
+    apiFetch('/assets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateAsset: (id: string, data: any) =>
+    apiFetch(`/assets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteAsset: (id: string) =>
+    apiFetch(`/assets/${id}`, {
+      method: 'DELETE',
+    }),
+
+  expressInterest: (id: string, message: string, offer?: number) =>
+    apiFetch(`/assets/${id}/interest`, {
+      method: 'POST',
+      body: JSON.stringify({ message, offer }),
+    }),
+
+  markAssetSold: (id: string, buyerId: string, soldPrice: number) =>
+    apiFetch(`/assets/${id}/sold`, {
+      method: 'POST',
+      body: JSON.stringify({ buyerId, soldPrice }),
+    }),
+
+  getMarketplaceStats: () => apiFetch('/assets/stats'),
+
+  getMyAssets: () => apiFetch('/assets/my-assets'),
+
+  // War Rooms (Live Autopsy War Rooms)
+  getWarRooms: (params?: { 
+    status?: string; 
+    situation?: string; 
+    isLive?: boolean;
+    page?: number; 
+    limit?: number 
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.append('status', params.status);
+    if (params?.situation) query.append('situation', params.situation);
+    if (params?.isLive !== undefined) query.append('isLive', params.isLive.toString());
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+    return apiFetch(`/war-rooms?${query}`);
+  },
+
+  getWarRoomById: (id: string) => apiFetch(`/war-rooms/${id}`),
+
+  createWarRoom: (data: any) =>
+    apiFetch('/war-rooms', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  joinWarRoom: (id: string, role?: string) =>
+    apiFetch(`/war-rooms/${id}/join`, {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    }),
+
+  sendWarRoomMessage: (id: string, text: string, type?: string) =>
+    apiFetch(`/war-rooms/${id}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ text, type }),
+    }),
+
+  reactToWarRoomMessage: (id: string, messageId: string, emoji: string) =>
+    apiFetch(`/war-rooms/${id}/messages/${messageId}/react`, {
+      method: 'POST',
+      body: JSON.stringify({ emoji }),
+    }),
+
+  addWarRoomAction: (id: string, description: string, assignedTo?: string) =>
+    apiFetch(`/war-rooms/${id}/actions`, {
+      method: 'POST',
+      body: JSON.stringify({ description, assignedTo }),
+    }),
+
+  updateWarRoomAction: (id: string, actionId: string, status: string) =>
+    apiFetch(`/war-rooms/${id}/actions/${actionId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    }),
+
+  addWarRoomResource: (id: string, data: any) =>
+    apiFetch(`/war-rooms/${id}/resources`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  createWarRoomPoll: (id: string, question: string, options: string[]) =>
+    apiFetch(`/war-rooms/${id}/polls`, {
+      method: 'POST',
+      body: JSON.stringify({ question, options }),
+    }),
+
+  voteWarRoomPoll: (id: string, pollId: string, option: number) =>
+    apiFetch(`/war-rooms/${id}/polls/${pollId}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ option }),
+    }),
+
+  addMentorNote: (id: string, note: string, isPrivate?: boolean) =>
+    apiFetch(`/war-rooms/${id}/mentor-notes`, {
+      method: 'POST',
+      body: JSON.stringify({ note, isPrivate }),
+    }),
+
+  endWarRoom: (id: string, outcome: any, summary: string) =>
+    apiFetch(`/war-rooms/${id}/end`, {
+      method: 'POST',
+      body: JSON.stringify({ outcome, summary }),
+    }),
 };

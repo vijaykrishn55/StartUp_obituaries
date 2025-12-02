@@ -30,14 +30,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -85,25 +77,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await response.json();
       
       const userData: User = {
-        id: data.user._id,
-        name: data.user.name,
-        email: data.user.email,
-        userType: data.user.userType,
-        avatar: data.user.avatar,
-        bio: data.user.bio,
-        company: data.user.company,
-        location: data.user.location,
-        verified: data.user.verified,
-        website: data.user.website,
-        twitter: data.user.twitter,
-        linkedIn: data.user.linkedIn,
-        github: data.user.github,
+        id: data.data.user.id,
+        name: data.data.user.name,
+        email: data.data.user.email,
+        userType: data.data.user.userType,
+        avatar: data.data.user.avatar,
+        bio: data.data.user.bio,
+        company: data.data.user.company,
+        location: data.data.user.location,
+        verified: data.data.user.verified,
+        website: data.data.user.website,
+        twitter: data.data.user.twitter,
+        linkedIn: data.data.user.linkedIn,
+        github: data.data.user.github,
       };
 
       // Store in localStorage
       localStorage.setItem('auth_user', JSON.stringify(userData));
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('refresh_token', data.refreshToken);
+      localStorage.setItem('auth_token', data.data.token);
+      localStorage.setItem('refresh_token', data.data.refreshToken);
       
       setUser(userData);
     } catch (error) {
@@ -136,21 +128,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await response.json();
       
       const newUser: User = {
-        id: data.user._id,
-        name: data.user.name,
-        email: data.user.email,
-        userType: data.user.userType,
-        avatar: data.user.avatar,
-        bio: data.user.bio,
-        company: data.user.company,
-        location: data.user.location,
+        id: data.data.user.id,
+        name: data.data.user.name,
+        email: data.data.user.email,
+        userType: data.data.user.userType,
+        avatar: data.data.user.avatar,
+        bio: data.data.user.bio,
+        company: data.data.user.company,
+        location: data.data.user.location,
         verified: false,
       };
 
       // Store in localStorage
       localStorage.setItem('auth_user', JSON.stringify(newUser));
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('refresh_token', data.refreshToken);
+      localStorage.setItem('auth_token', data.data.token);
+      localStorage.setItem('refresh_token', data.data.refreshToken);
       
       setUser(newUser);
     } catch (error) {
@@ -188,3 +180,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+// Export useAuth hook separately for better Fast Refresh support
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}

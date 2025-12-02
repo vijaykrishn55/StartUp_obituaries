@@ -25,6 +25,9 @@ const storyRoutes = require('./routes/stories');
 const founderRoutes = require('./routes/founders');
 const investorRoutes = require('./routes/investors');
 const pitchRoutes = require('./routes/pitches');
+const failureReportRoutes = require('./routes/failureReports');
+const assetRoutes = require('./routes/assets');
+const warRoomRoutes = require('./routes/warRooms');
 
 const app = express();
 const server = http.createServer(app);
@@ -57,7 +60,11 @@ io.on('connection', (socket) => {
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:8080',
+    process.env.FRONTEND_URL
+  ].filter(Boolean),
   credentials: true
 }));
 app.use(morgan('dev')); // Logging
@@ -83,6 +90,9 @@ app.use('/api/stories', storyRoutes);
 app.use('/api/founders', founderRoutes);
 app.use('/api/investors', investorRoutes);
 app.use('/api/pitches', pitchRoutes);
+app.use('/api/failure-reports', failureReportRoutes);
+app.use('/api/assets', assetRoutes);
+app.use('/api/war-rooms', warRoomRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

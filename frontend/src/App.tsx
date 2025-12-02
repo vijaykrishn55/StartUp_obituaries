@@ -15,6 +15,10 @@ import PostDetail from "./pages/PostDetail";
 import Dashboard from "./pages/Dashboard";
 import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
+import FailureHeatmap from "./pages/FailureHeatmap";
+import ResurrectionMarketplace from "./pages/ResurrectionMarketplace";
+import LiveAutopsyWarRooms from "./pages/LiveAutopsyWarRooms";
+import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
 
 const queryClient = new QueryClient();
 
@@ -26,7 +30,14 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route
+              path="/"
+              element={
+                <RedirectIfAuthed>
+                  <Index />
+                </RedirectIfAuthed>
+              }
+            />
             <Route path="/stories" element={<Stories />} />
             <Route path="/founders" element={<Founders />} />
             <Route path="/investors" element={<Investors />} />
@@ -57,6 +68,12 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route path="/failure-heatmap" element={<FailureHeatmap />} />
+            <Route path="/failure-reports/:id" element={<FailureHeatmap />} />
+            <Route path="/marketplace" element={<ResurrectionMarketplace />} />
+            <Route path="/resurrection-marketplace" element={<ResurrectionMarketplace />} />
+            <Route path="/war-rooms" element={<LiveAutopsyWarRooms />} />
+            <Route path="/war-rooms/:id" element={<LiveAutopsyWarRooms />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

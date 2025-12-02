@@ -1,8 +1,37 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Users, BookOpen, Briefcase } from "lucide-react";
 import heroImage from "@/assets/hero-image.jpg";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 const Hero = () => {
+  const [stats, setStats] = useState({
+    founders: 0,
+    stories: 0,
+    jobs: 0
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [foundersRes, storiesRes, jobsRes]: any[] = await Promise.all([
+          api.getFounders({ limit: 1 }),
+          api.getStories({ limit: 1 }),
+          api.getJobs({ limit: 1 })
+        ]);
+        
+        setStats({
+          founders: foundersRes.total || 0,
+          stories: storiesRes.total || 0,
+          jobs: jobsRes.total || 0
+        });
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      }
+    };
+    fetchStats();
+  }, []);
+
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-background via-background to-secondary">
       <div className="container mx-auto px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
@@ -45,21 +74,21 @@ const Hero = () => {
               <div>
                 <div className="flex items-center gap-2 text-2xl font-bold text-foreground">
                   <Users className="h-5 w-5 text-primary" />
-                  500+
+                  {stats.founders}+
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">Founders</p>
               </div>
               <div>
                 <div className="flex items-center gap-2 text-2xl font-bold text-foreground">
                   <BookOpen className="h-5 w-5 text-primary" />
-                  200+
+                  {stats.stories}+
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">Stories</p>
               </div>
               <div>
                 <div className="flex items-center gap-2 text-2xl font-bold text-foreground">
                   <Briefcase className="h-5 w-5 text-primary" />
-                  150+
+                  {stats.jobs}+
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">Jobs</p>
               </div>
@@ -77,19 +106,7 @@ const Hero = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent"></div>
             </div>
             
-            {/* Floating Card */}
-            <div className="absolute -bottom-6 -left-6 rounded-xl border border-red-900/30 bg-black/80 p-4 shadow-lg backdrop-blur-sm lg:p-6 hidden sm:block">
-              <p className="text-sm font-medium text-gray-200">
-                "Writing my startup's obituary was therapeutic. Others learned from my mistakes."
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-red-900 to-orange-900 flex items-center justify-center text-xs text-red-200 font-bold">†</div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-200">Sarah Chen</p>
-                  <p className="text-xs text-red-400/80">Founder (2019-2023)</p>
-                </div>
-              </div>
-            </div>
+
           </div>
         </div>
       </div>

@@ -35,13 +35,17 @@ export const SignInDialog = ({ open, onOpenChange }: SignInDialogProps) => {
       
       toast({
         title: "Sign in successful!",
-        description: `Welcome back, ${email}`,
+        description: `Welcome back!`,
       });
       
       onOpenChange(false);
       setEmail("");
       setPassword("");
-      navigate("/dashboard");
+      
+      // Small delay to ensure state is updated before navigation
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 100);
     } catch (error) {
       toast({
         title: "Sign in failed",

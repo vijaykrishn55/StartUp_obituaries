@@ -125,20 +125,16 @@ const ProfilePage = () => {
     }
   }, [user]);
 
-  const getDashboardRoute = () => {
-    return user?.userType === 'investor' ? '/investor-dashboard' : '/dashboard';
-  };
-
   const handleHomeClick = () => {
-    navigate(getDashboardRoute());
+    navigate('/dashboard');
   };
 
   const handleNetworkClick = () => {
-    navigate(getDashboardRoute());
+    navigate('/dashboard');
   };
 
   const handleMessageClick = () => {
-    navigate(getDashboardRoute());
+    navigate('/dashboard');
   };
 
   if (!user) {
