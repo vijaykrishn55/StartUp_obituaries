@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { getSocket, disconnectSocket } from '@/lib/socket';
+import { toast } from 'sonner';
 
 export interface User {
   id: string;
@@ -26,6 +28,7 @@ interface AuthContextType {
   register: (name: string, email: string, password: string, userType: User['userType']) => Promise<void>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -98,6 +101,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('refresh_token', data.data.refreshToken);
       
       setUser(userData);
+      try {
+        const s = getSocket();
+        s.on('connect', () => {
+          s.emit('join', userData.id);
+        });
+        s.on('new_message', (payload: any) => {
+          console.log('New message received', payload);
+          // Show toast notification
+          toast.info('New message received', {
+            description: 'You have a new message',
+          });
+          // Trigger notification badge update (could use a custom event or global state)
+          window.dispatchEvent(new CustomEvent('new-message', { detail: payload }));
+        });
+        // If already connected, emit immediately
+        if (s.connected) {
+          s.emit('join', userData.id);
+        }
+      } catch (e) {
+        console.warn('Socket connect failed on login');
+      }
     } catch (error) {
       console.error('Login failed:', error);
       throw new Error('Login failed. Please check your credentials.');
@@ -145,6 +169,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('refresh_token', data.data.refreshToken);
       
       setUser(newUser);
+      try {
+        const s = getSocket();
+        s.on('connect', () => {
+          s.emit('join', newUser.id);
+        });
+        s.on('new_message', (payload: any) => {
+          console.log('New message received', payload);
+          toast.info('New message received', {
+            description: 'You have a new message',
+          });
+          window.dispatchEvent(new CustomEvent('new-message', { detail: payload }));
+        });
+        if (s.connected) {
+          s.emit('join', newUser.id);
+        }
+      } catch (e) {
+        console.warn('Socket connect failed on register');
+      }
     } catch (error) {
       console.error('Registration failed:', error);
       throw new Error('Registration failed. Please try again.');
@@ -158,6 +200,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('refresh_token');
     setUser(null);
+    try { disconnectSocket(); } catch {}
   };
 
   const updateUser = (userData: Partial<User>) => {
@@ -165,6 +208,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const updatedUser = { ...user, ...userData };
       setUser(updatedUser);
       localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      
+      const response = await fetch('http://localhost:5000/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const userData = data.data?.user || data.user || data.data || data;
+        const updatedUser: User = {
+          id: userData._id || userData.id,
+          name: userData.name,
+          email: userData.email,
+          userType: userData.userType,
+          avatar: userData.avatar,
+          bio: userData.bio,
+          company: userData.company,
+          location: userData.location,
+          verified: userData.verified,
+          website: userData.website,
+          twitter: userData.twitter,
+          linkedIn: userData.linkedIn,
+          github: userData.github,
+        };
+        setUser(updatedUser);
+        localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
     }
   };
 
@@ -176,6 +257,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     updateUser,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

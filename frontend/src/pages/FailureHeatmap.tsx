@@ -306,12 +306,12 @@ export default function FailureHeatmap() {
                       <CardTitle className="text-xl mb-2">
                         {report.anonymousPost ? 'Anonymous Startup' : report.startupName}
                       </CardTitle>
-                      <CardDescription className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Badge variant="outline">{report.industry}</Badge>
                         <Badge variant={getReasonColor(report.primaryReason)}>
                           {report.primaryReason}
                         </Badge>
-                      </CardDescription>
+                      </div>
                     </div>
                     <div className="text-right text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">

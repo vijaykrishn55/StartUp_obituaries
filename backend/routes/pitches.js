@@ -6,7 +6,9 @@ const {
   getPitchById,
   updatePitch,
   updatePitchStatus,
-  deletePitch
+  deletePitch,
+  getMyPitches,
+  getReceivedPitches
 } = require('../controllers/pitchController');
 const { protect } = require('../middleware/auth');
 
@@ -15,6 +17,11 @@ router.use(protect);
 
 router.post('/', submitPitch);
 router.get('/', getPitches);
+
+// Specific routes MUST come before /:id
+router.get('/my-pitches', getMyPitches);
+router.get('/received', getReceivedPitches);
+
 router.get('/:id', getPitchById);
 router.put('/:id', updatePitch);
 router.put('/:id/status', updatePitchStatus);

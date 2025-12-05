@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -14,70 +16,18 @@ import {
 import { Search, Filter, TrendingUp, Users, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const deals = [
-  {
-    id: 1,
-    company: "AI Analytics Pro",
-    logo: "https://api.dicebear.com/7.x/shapes/svg?seed=AIAnalytics",
-    stage: "Seed",
-    sector: "AI/ML",
-    raising: "$1.5M",
-    valuation: "$8M",
-    traction: "500K ARR",
-    growth: "15% MoM",
-    team: "Ex-Google, Stanford",
-    status: "Hot",
-    description: "AI-powered analytics platform for enterprise clients. Strong product-market fit with Fortune 500 companies."
-  },
-  {
-    id: 2,
-    company: "EduTech Solutions",
-    logo: "https://api.dicebear.com/7.x/shapes/svg?seed=EduTech",
-    stage: "Series A",
-    sector: "EdTech",
-    raising: "$5M",
-    valuation: "$25M",
-    traction: "2M ARR",
-    growth: "20% MoM",
-    team: "2nd time founders",
-    status: "New",
-    description: "Revolutionizing online education with personalized learning paths. 50K+ active students."
-  },
-  {
-    id: 3,
-    company: "FinFlow",
-    logo: "https://api.dicebear.com/7.x/shapes/svg?seed=FinFlow",
-    stage: "Pre-seed",
-    sector: "FinTech",
-    raising: "$500K",
-    valuation: "$3M",
-    traction: "100K ARR",
-    growth: "25% MoM",
-    team: "Ex-Goldman Sachs",
-    status: "Hot",
-    description: "Modern banking infrastructure for SMBs. Already processing $10M+ in transactions monthly."
-  },
-  {
-    id: 4,
-    company: "GreenEnergy Co",
-    logo: "https://api.dicebear.com/7.x/shapes/svg?seed=GreenEnergy",
-    stage: "Seed",
-    sector: "CleanTech",
-    raising: "$2M",
-    valuation: "$10M",
-    traction: "800K ARR",
-    growth: "18% MoM",
-    team: "MIT, Tesla Alumni",
-    status: "Trending",
-    description: "Sustainable energy solutions for residential markets. Patent-pending technology."
-  }
-];
-
 export const DealFlow = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [sectorFilter, setSectorFilter] = useState("all");
   const { toast } = useToast();
+
+  const { data: pitchesData, isLoading } = useQuery({
+    queryKey: ["pitches"],
+    queryFn: () => api.getPitches(),
+  });
+
+  const deals = Array.isArray(pitchesData) ? pitchesData : (pitchesData as any)?.data || [];
 
   const handleRequestInfo = (company: string) => {
     toast({
@@ -166,36 +116,40 @@ export const DealFlow = () => {
       </Card>
 
       {/* Deal Cards */}
-      {deals.map((deal) => (
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading pitches...</div>
+      ) : deals.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">No pitches available yet.</div>
+      ) : deals.map((deal: any) => (
         <Card key={deal.id}>
           <CardHeader>
             <div className="flex items-start gap-4">
               <Avatar className="h-16 w-16">
-                <AvatarImage src={deal.logo} />
-                <AvatarFallback>{deal.company[0]}</AvatarFallback>
+                <AvatarImage src={deal.logo || deal.founder?.avatar} />
+                <AvatarFallback>{(deal.companyName || deal.company || 'C')[0]}</AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-lg">{deal.company}</h3>
-                    <p className="text-sm text-muted-foreground">{deal.team}</p>
+                    <h3 className="font-semibold text-lg">{deal.companyName || deal.company || 'Startup'}</h3>
+                    <p className="text-sm text-muted-foreground">{deal.founder?.name || deal.team || 'Team'}</p>
                   </div>
                   <Badge 
-                    variant={deal.status === "Hot" ? "default" : "secondary"}
+                    variant={deal.status === "Hot" || deal.status === "reviewing" ? "default" : "secondary"}
                     className={deal.status === "Hot" ? "bg-red-500" : ""}
                   >
-                    {deal.status}
+                    {deal.status || 'New'}
                   </Badge>
                 </div>
                 <div className="flex gap-2 mt-2">
-                  <Badge variant="outline">{deal.stage}</Badge>
-                  <Badge variant="outline">{deal.sector}</Badge>
+                  <Badge variant="outline">{deal.stage || deal.fundingStage || 'Seed'}</Badge>
+                  <Badge variant="outline">{deal.sector || deal.industry || 'Tech'}</Badge>
                 </div>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">{deal.description}</p>
+            <p className="text-sm text-muted-foreground">{deal.description || deal.pitch || deal.problem || 'No description provided.'}</p>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="space-y-1">
@@ -203,48 +157,48 @@ export const DealFlow = () => {
                   <DollarSign className="h-3 w-3" />
                   <p className="text-xs">Raising</p>
                 </div>
-                <p className="font-semibold">{deal.raising}</p>
+                <p className="font-semibold">{deal.raising || (deal.fundingAmount ? `$${deal.fundingAmount.toLocaleString()}` : 'N/A')}</p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <TrendingUp className="h-3 w-3" />
                   <p className="text-xs">Valuation</p>
                 </div>
-                <p className="font-semibold">{deal.valuation}</p>
+                <p className="font-semibold">{deal.valuation || (deal.currentValuation ? `$${deal.currentValuation.toLocaleString()}` : 'N/A')}</p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <DollarSign className="h-3 w-3" />
                   <p className="text-xs">Traction</p>
                 </div>
-                <p className="font-semibold">{deal.traction}</p>
+                <p className="font-semibold">{deal.traction || (deal.revenue ? `$${deal.revenue.toLocaleString()} ARR` : 'N/A')}</p>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <TrendingUp className="h-3 w-3" />
                   <p className="text-xs">Growth</p>
                 </div>
-                <p className="font-semibold">{deal.growth}</p>
+                <p className="font-semibold">{deal.growth || (deal.metrics?.growth ? `${deal.metrics.growth}% MoM` : 'N/A')}</p>
               </div>
             </div>
 
             <div className="flex gap-2">
               <Button 
                 className="flex-1"
-                onClick={() => handleRequestInfo(deal.company)}
+                onClick={() => handleRequestInfo(deal.companyName || deal.company || 'Company')}
               >
                 Request Info
               </Button>
               <Button 
                 variant="outline" 
                 className="flex-1"
-                onClick={() => handleScheduleMeeting(deal.company)}
+                onClick={() => handleScheduleMeeting(deal.companyName || deal.company || 'Company')}
               >
                 Schedule Meeting
               </Button>
               <Button 
                 variant="ghost"
-                onClick={() => handlePass(deal.company)}
+                onClick={() => handlePass(deal.companyName || deal.company || 'Company')}
               >
                 Pass
               </Button>

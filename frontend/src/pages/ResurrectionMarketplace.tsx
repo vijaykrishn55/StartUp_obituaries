@@ -57,8 +57,8 @@ export default function ResurrectionMarketplace() {
         }),
         api.getMarketplaceStats()
       ]);
-      setAssets((assetsData as any).assets || []);
-      setStats(statsData);
+      setAssets(((assetsData as any).assets || []) as any[]);
+      setStats(statsData as any);
     } catch (error: any) {
       console.error('Failed to load marketplace data:', error);
       
@@ -170,7 +170,7 @@ export default function ResurrectionMarketplace() {
             <div>
               <h1 className="text-4xl font-bold">Resurrection Marketplace</h1>
               <p className="text-xl opacity-90 mt-2">
-                {formatCurrency(stats?.totalValueTraded || 12400000)} in assets traded
+                {formatCurrency((stats?.totalValueTraded || 0) as number)} in assets traded
               </p>
             </div>
           </div>
@@ -246,14 +246,14 @@ export default function ResurrectionMarketplace() {
               </div>
 
               <Select 
-                value={filters.category} 
-                onValueChange={(value) => setFilters({...filters, category: value})}
+                value={filters.category || 'all'} 
+                onValueChange={(value) => setFilters({...filters, category: value === 'all' ? '' : value})}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categories.map(cat => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
@@ -262,6 +262,9 @@ export default function ResurrectionMarketplace() {
 
               <Button onClick={() => navigate('/marketplace/list-asset')} className="bg-green-600 hover:bg-green-700">
                 List Asset
+              </Button>
+              <Button onClick={() => navigate('/marketplace/my-listings')} variant="outline">
+                My Listings
               </Button>
             </div>
           </CardContent>
@@ -273,10 +276,7 @@ export default function ResurrectionMarketplace() {
             <Card 
               key={asset._id} 
               className="hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
-              onClick={() => {
-                setSelectedAsset(asset);
-                setShowInterestDialog(true);
-              }}
+              onClick={() => navigate(`/marketplace/${asset._id}`)}
             >
               <CardHeader>
                 <div className="flex items-start justify-between mb-2">
@@ -327,7 +327,14 @@ export default function ResurrectionMarketplace() {
                         </p>
                       )}
                     </div>
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                    <Button 
+                      size="sm" 
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/marketplace/${asset._id}`);
+                      }}
+                    >
                       View Details
                     </Button>
                   </div>

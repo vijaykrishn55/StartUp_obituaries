@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { api } from "@/lib/api";
 import { Connection } from "@/lib/data";
 
 export const MyNetwork = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("discover");
   const [connections, setConnections] = useState<any[]>([]);
@@ -128,10 +130,29 @@ export const MyNetwork = () => {
     }
   };
 
+  const handleMessage = async (userId: string, userName: string) => {
+    try {
+      // Navigate to messages page with userId as query param
+      // The Messages page will create the conversation if it doesn't exist
+      navigate(`/messages?user=${userId}`);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start conversation",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewProfile = (userId: string, userType: string) => {
+    // Navigate to user's profile page
+    navigate(`/profile/${userId}`);
+  };
+
   const filterPeople = (people: any[]) => {
     if (!searchQuery) return people;
     return people.filter((person) => {
-      const user = person.user || person.sender || person;
+      const user = person.user || person.requester || person.sender || person;
       return (
         user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.headline?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -251,7 +272,11 @@ export const MyNetwork = () => {
                             <UserPlus className="h-4 w-4 mr-2" />
                             Connect
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleViewProfile(user._id, user.userType)}
+                          >
                             View Profile
                           </Button>
                         </div>
@@ -310,11 +335,19 @@ export const MyNetwork = () => {
                           </Badge>
                         </div>
                         <div className="flex gap-2 mt-3">
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleMessage(user._id, user.name)}
+                          >
                             <MessageCircle className="h-4 w-4 mr-2" />
                             Message
                           </Button>
-                          <Button size="sm" variant="ghost">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => handleViewProfile(user._id, user.userType)}
+                          >
                             View Profile
                           </Button>
                           <Button 
@@ -346,7 +379,7 @@ export const MyNetwork = () => {
             </Card>
           ) : (
             filteredReceivedRequests.map((request) => {
-              const user = request.sender || request.user || request;
+              const user = request.requester || request.sender || request.user || request;
               return (
                 <Card key={request._id}>
                   <CardContent className="pt-6">
@@ -358,7 +391,7 @@ export const MyNetwork = () => {
                       <div className="flex-1">
                         <h4 className="font-semibold">{user.name}</h4>
                         <p className="text-sm text-muted-foreground">
-                          {user.headline || user.role}
+                          {user.headline || user.role || user.company}
                         </p>
                         {user.location && (
                           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">

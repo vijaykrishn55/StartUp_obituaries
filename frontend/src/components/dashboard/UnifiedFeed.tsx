@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { RichPostEditor } from "./RichPostEditor";
+import { useToast } from "@/hooks/use-toast";
+import { api } from "@/lib/api";
 import { 
   ThumbsUp, 
   MessageCircle, 
@@ -29,7 +31,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from "@/hooks/use-toast";
 
 interface UnifiedFeedProps {
   searchQuery?: string;
@@ -87,33 +88,80 @@ const feedPosts = [
 export const UnifiedFeed = ({ searchQuery = "" }: UnifiedFeedProps) => {
   const navigate = useNavigate();
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [publishedPosts, setPublishedPosts] = useState<any[]>([]);
+  const [realPosts, setRealPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getPosts();
+      const posts = response.data || response.posts || response || [];
+      setRealPosts(posts);
+    } catch (error: any) {
+      console.error("Failed to fetch posts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load posts",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Combine real posts with mock data, real posts first
+  const allPosts = [...realPosts, ...feedPosts];
+
   // Filter feed posts based on search query
-  const filteredFeedPosts = feedPosts.filter((post) => {
+  const filteredFeedPosts = allPosts.filter((post) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
+    const author = post.author?.name || post.author || '';
+    const content = post.content || '';
+    const company = post.author?.company || post.company || '';
+    
     return (
-      post.author.toLowerCase().includes(query) ||
-      post.company.toLowerCase().includes(query) ||
-      post.content.toLowerCase().includes(query) ||
-      post.role.toLowerCase().includes(query) ||
-      (post.sector && post.sector.toLowerCase().includes(query)) ||
-      (post.stage && post.stage.toLowerCase().includes(query)) ||
-      (post.jobTitle && post.jobTitle.toLowerCase().includes(query))
+      author.toLowerCase().includes(query) ||
+      company.toLowerCase().includes(query) ||
+      content.toLowerCase().includes(query) ||
+      (post.tags && post.tags.some((tag: string) => tag.toLowerCase().includes(query)))
     );
   });
 
-  const handlePublish = (post: any) => {
-    setPublishedPosts([post, ...publishedPosts]);
-    setIsEditorOpen(false);
+  const handlePublish = async (postData: any) => {
+    try {
+      await api.createPost(postData);
+      toast({
+        title: "Success",
+        description: "Post published successfully",
+      });
+      setIsEditorOpen(false);
+      fetchPosts(); // Refresh feed
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to publish post",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleLike = (postId: number) => {
-    toast({
-      title: "Post liked!",
-    });
+  const handleLike = async (postId: string) => {
+    try {
+      await api.likePost(postId);
+      fetchPosts(); // Refresh to show updated like count
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to like post",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleInterest = (company: string) => {
@@ -189,128 +237,6 @@ export const UnifiedFeed = ({ searchQuery = "" }: UnifiedFeedProps) => {
         </CardContent>
       </Card>
 
-      {/* User's Published Posts */}
-      {publishedPosts.map((post, index) => (
-        <Card key={`user-${index}`}>
-          <CardContent className="pt-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src="https://github.com/shadcn.png" />
-                  <AvatarFallback>JD</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h4 className="font-semibold text-sm">You</h4>
-                  <p className="text-xs text-muted-foreground">Just now</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="flex items-center gap-1">
-                  {getPostTypeIcon(post.type)}
-                  {getPostTypeLabel(post.type)}
-                </Badge>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>Edit post</DropdownMenuItem>
-                    <DropdownMenuItem>Delete post</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-
-            {post.coverImage && (
-              <img
-                src={post.coverImage}
-                alt="Cover"
-                className="w-full h-64 object-cover rounded-lg mb-4"
-              />
-            )}
-
-            <h2 className="text-xl font-bold mb-2">{post.title}</h2>
-            {post.subtitle && (
-              <p className="text-muted-foreground mb-3">{post.subtitle}</p>
-            )}
-
-            {post.type === "postmortem" && post.companyName && (
-              <div className="p-3 bg-red-500/10 rounded-lg mb-4 border border-red-500/20">
-                <p className="text-sm">
-                  <strong>{post.companyName}</strong>
-                  {post.foundedYear && post.closedYear && (
-                    <> • {post.foundedYear} - {post.closedYear}</>
-                  )}
-                  {post.totalFunding && <> • Raised {post.totalFunding}</>}
-                </p>
-              </div>
-            )}
-
-            {post.type === "funding" && post.fundingAmount && (
-              <div className="p-3 bg-green-500/10 rounded-lg mb-4 border border-green-500/20">
-                <p className="text-2xl font-bold text-green-600">{post.fundingAmount}</p>
-                <p className="text-sm text-muted-foreground">
-                  {post.fundingStage} round
-                  {post.investors && ` • Led by ${post.investors}`}
-                </p>
-              </div>
-            )}
-
-            {post.type === "job" && post.jobTitle && (
-              <div className="p-3 bg-blue-500/10 rounded-lg mb-4 border border-blue-500/20">
-                <p className="text-lg font-bold">{post.jobTitle}</p>
-                <p className="text-sm text-muted-foreground">
-                  {post.jobType}
-                  {post.location && ` • ${post.location}`}
-                  {post.salary && ` • ${post.salary}`}
-                </p>
-              </div>
-            )}
-
-            <p className="text-sm whitespace-pre-line mb-3 line-clamp-4">
-              {post.content}
-            </p>
-
-            {post.tags && post.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {post.tags.map((tag: string) => (
-                  <Badge key={tag} variant="secondary" className="text-xs">
-                    #{tag}
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {Math.ceil(post.content.split(/\s+/).length / 200)} min read
-              </span>
-            </div>
-
-            <Separator className="mb-3" />
-            <div className="flex items-center justify-between gap-2">
-              <Button variant="ghost" size="sm" className="flex-1">
-                <ThumbsUp className="h-4 w-4 mr-2" />
-                Like
-              </Button>
-              <Button variant="ghost" size="sm" className="flex-1">
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Comment
-              </Button>
-              <Button variant="ghost" size="sm" className="flex-1">
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Bookmark className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
 
       {/* Feed Posts */}
       {filteredFeedPosts.length === 0 && searchQuery ? (
@@ -321,20 +247,38 @@ export const UnifiedFeed = ({ searchQuery = "" }: UnifiedFeedProps) => {
             </p>
           </CardContent>
         </Card>
+      ) : loading ? (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Loading posts...</p>
+          </CardContent>
+        </Card>
       ) : (
-        filteredFeedPosts.map((post) => (
-        <Card key={post.id} className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => navigate(`/posts/${post.id}`)}>
+        filteredFeedPosts.map((post) => {
+          const postId = post._id || post.id;
+          const isRealPost = !!post._id;
+          const author = post.author?.name || post.author || 'Unknown';
+          const authorAvatar = post.author?.avatar || post.avatar;
+          const authorRole = post.author?.role || post.author?.headline || post.role;
+          const createdAt = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : post.time;
+          
+          return (
+        <Card 
+          key={postId} 
+          className={`transition-shadow hover:shadow-md ${isRealPost ? 'cursor-pointer' : ''}`} 
+          onClick={() => isRealPost && navigate(`/posts/${postId}`)}
+        >
           <CardContent className="pt-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex gap-3" onClick={(e) => e.stopPropagation()}>
                 <Avatar className="h-12 w-12 cursor-pointer" onClick={() => navigate('/profile')}>
-                  <AvatarImage src={post.avatar} />
-                  <AvatarFallback>{post.author[0]}</AvatarFallback>
+                  <AvatarImage src={authorAvatar} />
+                  <AvatarFallback>{author[0]?.toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <h4 className="font-semibold text-sm">{post.author}</h4>
-                  <p className="text-xs text-muted-foreground">{post.role}</p>
-                  <p className="text-xs text-muted-foreground">{post.time}</p>
+                  <h4 className="font-semibold text-sm">{author}</h4>
+                  <p className="text-xs text-muted-foreground">{authorRole}</p>
+                  <p className="text-xs text-muted-foreground">{createdAt}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -388,10 +332,10 @@ export const UnifiedFeed = ({ searchQuery = "" }: UnifiedFeedProps) => {
 
             <Separator className="mb-3" />
             <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
-              <span>{post.likes} likes</span>
+              <span>{post.likes?.length || post.likes || 0} likes</span>
               <div className="flex gap-3">
-                <span>{post.comments} comments</span>
-                <span>{post.shares} shares</span>
+                <span>{post.comments?.length || post.comments || 0} comments</span>
+                <span>{post.shares || 0} shares</span>
               </div>
             </div>
             <Separator className="mb-3" />
@@ -399,8 +343,12 @@ export const UnifiedFeed = ({ searchQuery = "" }: UnifiedFeedProps) => {
               <Button 
                 variant="ghost" 
                 size="sm"
-                onClick={() => handleLike(post.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isRealPost) handleLike(postId);
+                }}
                 className="flex-1"
+                disabled={!isRealPost}
               >
                 <ThumbsUp className="h-4 w-4 mr-2" />
                 Like
@@ -431,14 +379,15 @@ export const UnifiedFeed = ({ searchQuery = "" }: UnifiedFeedProps) => {
             {post.type === "job" && (
               <>
                 <Separator className="my-3" />
-                <Button className="w-full">
+                <Button className="w-full" disabled={!isRealPost}>
                   Apply Now
                 </Button>
               </>
             )}
           </CardContent>
         </Card>
-        ))
+        );
+        })
       )}
     </div>
   );

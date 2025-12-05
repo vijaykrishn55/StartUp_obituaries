@@ -63,7 +63,7 @@ const JobCard = ({ title, company, location, type, salary, postedDate, tags, isR
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {tags.map((tag, index) => (
+          {Array.isArray(tags) && tags.map((tag, index) => (
             <Badge key={index} variant="outline" className="text-xs">
               {tag}
             </Badge>

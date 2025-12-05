@@ -243,19 +243,26 @@ VITE_API_BASE_URL=http://localhost:5000/api
 
 ## 📱 Frontend Pages
 
-- `/` - Landing page with feature showcase
-- `/dashboard` - User dashboard feed
-- `/investor-dashboard` - Investor-specific dashboard
-- `/jobs` - Job board
-- `/jobs/:id` - Job details
-- `/stories` - Startup stories
-- `/founders` - Browse founders
-- `/investors` - Browse investors
-- `/profile` - User profile
-- `/posts/:id` - Post details
-- `/failure-heatmap` - Geographic failure visualization (NEW)
-- `/marketplace` or `/resurrection-marketplace` - Asset marketplace (NEW)
-- `/war-rooms` - Live support sessions (NEW)
+- `/` - Landing page with real database data and auth-protected navigation
+- `/dashboard` - User dashboard feed with posts, jobs, connections
+- `/investor-dashboard` - Investor-specific dashboard with deal flow
+- `/jobs` - Job board with search and filters
+- `/jobs/:id` - Job details with apply functionality
+- `/stories` - Startup stories with categories
+- `/stories/:id` - Individual story detail
+- `/founders` - Browse founder profiles
+- `/investors` - Browse investor profiles
+- `/profile` - Current user's profile (redirects to `/profile/:id`)
+- `/profile/:id` - Any user's profile with posts, activity, connections
+- `/posts/:id` - Post details with comments and polls
+- `/messages` - Direct messaging with conversations
+- `/bookmarks` - Saved/bookmarked posts
+- `/failure-heatmap` - Geographic failure visualization with analytics
+- `/failure-reports/submit` - Submit failure report
+- `/failure-reports/:id` - Failure report detail
+- `/marketplace` - Asset marketplace for failed startups
+- `/assets/:id` - Individual asset detail
+- `/war-rooms` - Live support sessions with real-time chat
 
 ## 🎨 UI Components
 
@@ -270,24 +277,54 @@ Built with shadcn/ui:
 - Loading states
 - Error boundaries
 
-## 📈 Recent Enhancements (2024)
+## 📈 Recent Enhancements (December 2024)
 
+### Core Features
 - ✅ **Failure Heatmap** - Geographic failure analysis with detailed reports
 - ✅ **Resurrection Marketplace** - Asset trading platform for failed startups
-- ✅ **Live Autopsy War Rooms** - Real-time crisis support with community
+- ✅ **Live Autopsy War Rooms** - Real-time crisis support with community and real-time messaging
+
+### Landing Page
+- ✅ **Real Database Integration** - All landing page sections fetch real data from MongoDB
+- ✅ **Dynamic Stats** - Founders, stories, jobs, investors, and assets traded counts from actual database
+- ✅ **Auth-Protected Navigation** - Clicking any feature opens Join Now dialog if not signed in
+- ✅ **Sign In/Join Now Toggle** - Seamless switching between login and registration dialogs
+
+### Profile System
+- ✅ **Unified Profile Page** - Single `/profile/:userId` route for all user types
+- ✅ **Real Profile Strength** - Calculated from actual profile completeness
+- ✅ **Real Analytics** - Profile views, post impressions, search appearances from database
+- ✅ **View Other Profiles** - Navigate to any user's profile with proper data isolation
+- ✅ **Message Button** - Direct messaging from profile pages with conversation creation
+
+### Posts & Content
+- ✅ **MyPosts Component** - Shows correct user's posts when viewing profiles
+- ✅ **Empty States** - Proper empty state messages for all profile sections
+- ✅ **Delete Functionality** - Working delete for skills, experiences, education, ventures
+
+### Messaging
+- ✅ **Conversation Creation** - Proper `/messages?user=` param handling
+- ✅ **War Rooms Real-time** - Tab caching without unnecessary reloads
+
+### Bug Fixes
+- ✅ Fixed route ordering issues (specific routes before dynamic)
+- ✅ Fixed React hydration errors
+- ✅ Fixed background color consistency across pages
+- ✅ Fixed array mapping errors (tags.map, skills.map with Array.isArray checks)
 
 ## 🔮 Future Enhancements
 
-- [ ] Email notifications
-- [ ] Advanced search and filters
-- [ ] Enhanced analytics dashboard
-- [ ] Video content support for War Rooms
-- [ ] Event management
-- [ ] Payment integration for Marketplace
+- [ ] Email notifications with SMTP integration
+- [ ] Advanced search and filters with Elasticsearch
+- [ ] Video content support for War Rooms (WebRTC)
+- [ ] Event management system
+- [ ] Payment integration for Marketplace (Stripe)
 - [ ] Mobile app (React Native)
-- [ ] AI-powered recommendations
+- [ ] AI-powered connection recommendations
 - [ ] Blockchain verification for assets
-- [ ] Advanced failure prediction models
+- [ ] Advanced failure prediction models with ML
+- [ ] Export profile/data functionality
+- [ ] Two-factor authentication
 
 ## 🤝 Contributing
 

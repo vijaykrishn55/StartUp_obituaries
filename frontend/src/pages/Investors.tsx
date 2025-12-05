@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { SubmitPitchDialog } from "@/components/SubmitPitchDialog";
 import { api } from "@/lib/api";
@@ -6,14 +7,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, Users, Mail, Search } from "lucide-react";
+import { TrendingUp, Users, Mail, Search, UserPlus, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const Investors = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [submitPitchOpen, setSubmitPitchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(6);
   const [investors, setInvestors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [connectingTo, setConnectingTo] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchInvestors = async () => {
@@ -54,6 +61,57 @@ const Investors = () => {
 
   const handleLoadMore = () => {
     setVisibleCount(prev => prev + 6);
+  };
+
+  const handleContact = async (investorId: string, investorUserId?: string) => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to contact investors.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // If investor has a user ID, navigate to messages
+    if (investorUserId) {
+      navigate(`/messages?user=${investorUserId}`);
+    } else {
+      // Otherwise, open pitch dialog
+      toast({
+        title: "Submit a Pitch",
+        description: "Contact this investor by submitting a pitch.",
+      });
+      setSubmitPitchOpen(true);
+    }
+  };
+
+  const handleConnect = async (investorId: string, investorUserId: string) => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to connect with investors.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setConnectingTo(investorUserId);
+      await api.sendConnectionRequest(investorUserId);
+      toast({
+        title: "Connection request sent",
+        description: "Your connection request has been sent.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send connection request.",
+        variant: "destructive",
+      });
+    } finally {
+      setConnectingTo(null);
+    }
   };
 
   return (
@@ -151,10 +209,31 @@ const Investors = () => {
                     </div>
                   </div>
 
-                  <Button className="w-full" variant="outline" size="sm">
-                    <Mail className="mr-2 h-4 w-4" />
-                    Contact
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      className="flex-1" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleContact(investor._id, investor.userId)}
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Contact
+                    </Button>
+                    {investor.userId && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        disabled={connectingTo === investor.userId}
+                        onClick={() => handleConnect(investor._id, investor.userId)}
+                      >
+                        {connectingTo === investor.userId ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <UserPlus className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
               ))

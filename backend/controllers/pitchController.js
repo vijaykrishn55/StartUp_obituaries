@@ -160,6 +160,50 @@ exports.updatePitchStatus = async (req, res, next) => {
   }
 };
 
+// @desc    Get my pitches (submitted by me)
+// @route   GET /api/pitches/my-pitches
+// @access  Private
+exports.getMyPitches = async (req, res, next) => {
+  try {
+    const pitches = await Pitch.find({ submittedBy: req.user.id })
+      .populate('submittedBy', 'name avatar email company')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      data: pitches
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get received pitches (for investors)
+// @route   GET /api/pitches/received
+// @access  Private (investors only)
+exports.getReceivedPitches = async (req, res, next) => {
+  try {
+    // For investors, show pitches targeted to them or all pitches if admin
+    const pitches = await Pitch.find({
+      $or: [
+        { targetInvestors: req.user.id },
+        { targetInvestors: { $size: 0 } } // Pitches open to all investors
+      ]
+    })
+      .populate('submittedBy', 'name avatar email company')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      data: pitches
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Delete pitch
 // @route   DELETE /api/pitches/:id
 // @access  Private

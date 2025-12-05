@@ -23,9 +23,10 @@ import { useAuth, User } from "@/contexts/AuthContext";
 interface JoinNowDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSwitchToSignIn?: () => void;
 }
 
-export const JoinNowDialog = ({ open, onOpenChange }: JoinNowDialogProps) => {
+export const JoinNowDialog = ({ open, onOpenChange, onSwitchToSignIn }: JoinNowDialogProps) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -153,6 +154,18 @@ export const JoinNowDialog = ({ open, onOpenChange }: JoinNowDialogProps) => {
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Creating account..." : "Create Account"}
           </Button>
+          {onSwitchToSignIn && (
+            <div className="text-center text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <button 
+                type="button"
+                onClick={onSwitchToSignIn}
+                className="text-primary hover:underline font-medium"
+              >
+                Sign In
+              </button>
+            </div>
+          )}
           <div className="text-center text-sm text-muted-foreground">
             By signing up, you agree to our{" "}
             <a href="#" className="hover:text-foreground underline">

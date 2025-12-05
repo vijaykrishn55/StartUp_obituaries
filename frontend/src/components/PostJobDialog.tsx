@@ -44,6 +44,37 @@ export const PostJobDialog = ({ open, onOpenChange, onJobPosted }: PostJobDialog
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate title length
+    if (formData.title.trim().length < 5) {
+      toast({
+        title: "Title too short",
+        description: "Job title must be at least 5 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate description length
+    if (formData.description.trim().length < 100) {
+      toast({
+        title: "Description too short",
+        description: "Job description must be at least 100 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate requirements length
+    if (formData.requirements.trim().length < 50) {
+      toast({
+        title: "Requirements too short",
+        description: "Job requirements must be at least 50 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -52,6 +83,12 @@ export const PostJobDialog = ({ open, onOpenChange, onJobPosted }: PostJobDialog
       
       const jobData = {
         ...formData,
+        title: formData.title.trim(),
+        company: formData.company.trim(),
+        location: formData.location.trim(),
+        description: formData.description.trim(),
+        requirements: formData.requirements.trim(),
+        salary: formData.salary.trim() || undefined,
         tags: tagsArray,
       };
 
@@ -100,14 +137,20 @@ export const PostJobDialog = ({ open, onOpenChange, onJobPosted }: PostJobDialog
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="job-title">Job Title *</Label>
+            <Label htmlFor="job-title">Job Title * (min 5 characters)</Label>
             <Input
               id="job-title"
               placeholder="e.g., Senior Software Engineer"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               required
+              maxLength={100}
             />
+            {formData.title && (
+              <p className={`text-xs ${formData.title.trim().length >= 5 ? 'text-green-600' : 'text-muted-foreground'}`}>
+                {formData.title.trim().length}/5 characters {formData.title.trim().length >= 5 && '✓'}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -165,7 +208,7 @@ export const PostJobDialog = ({ open, onOpenChange, onJobPosted }: PostJobDialog
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Job Description *</Label>
+            <Label htmlFor="description">Job Description * (min 100 characters)</Label>
             <Textarea
               id="description"
               placeholder="Describe the role, responsibilities, and what makes this opportunity unique..."
@@ -174,10 +217,15 @@ export const PostJobDialog = ({ open, onOpenChange, onJobPosted }: PostJobDialog
               rows={4}
               required
             />
+            {formData.description && (
+              <p className={`text-xs ${formData.description.trim().length >= 100 ? 'text-green-600' : 'text-muted-foreground'}`}>
+                {formData.description.trim().length}/100 characters {formData.description.trim().length >= 100 && '✓'}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="requirements">Requirements *</Label>
+            <Label htmlFor="requirements">Requirements * (min 50 characters)</Label>
             <Textarea
               id="requirements"
               placeholder="List the key requirements and qualifications..."
@@ -186,6 +234,11 @@ export const PostJobDialog = ({ open, onOpenChange, onJobPosted }: PostJobDialog
               rows={4}
               required
             />
+            {formData.requirements && (
+              <p className={`text-xs ${formData.requirements.trim().length >= 50 ? 'text-green-600' : 'text-muted-foreground'}`}>
+                {formData.requirements.trim().length}/50 characters {formData.requirements.trim().length >= 50 && '✓'}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

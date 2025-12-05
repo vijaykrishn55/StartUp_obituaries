@@ -8,11 +8,12 @@ import { api } from "@/lib/api";
 
 export const FeaturesShowcase = () => {
   const navigate = useNavigate();
+  // Start with mock values so the section never looks empty
   const [stats, setStats] = useState({
-    heatmapReports: 0,
-    activeWarRooms: 0,
-    marketplaceAssets: 0,
-    totalValue: 0
+    heatmapReports: 1428,
+    activeWarRooms: 2,
+    marketplaceAssets: 128,
+    totalValue: 12400000
   });
 
   useEffect(() => {
@@ -24,14 +25,26 @@ export const FeaturesShowcase = () => {
           api.getAssets({ limit: 1 }).catch(() => ({ data: [], total: 0 }))
         ]);
 
+        const heatmapTotal = (heatmapRes as any).total || 0;
+        const warRoomsTotal = (warRoomsRes as any).total || 0;
+        const assetsTotal = (assetsRes as any).total || 0;
+
+        // Fallback mock values so the UI showcases examples without backend
         setStats({
-          heatmapReports: (heatmapRes as any).total || 0,
-          activeWarRooms: (warRoomsRes as any).total || 0,
-          marketplaceAssets: (assetsRes as any).total || 0,
-          totalValue: 12400000 // Mock value for now
+          heatmapReports: heatmapTotal || 1428,
+          activeWarRooms: warRoomsTotal || 2,
+          marketplaceAssets: assetsTotal || 128,
+          totalValue: 12400000
         });
       } catch (error) {
         console.error('Failed to fetch feature stats:', error);
+        // Full fallback values on error
+        setStats({
+          heatmapReports: 1428,
+          activeWarRooms: 2,
+          marketplaceAssets: 128,
+          totalValue: 12400000
+        });
       }
     };
 

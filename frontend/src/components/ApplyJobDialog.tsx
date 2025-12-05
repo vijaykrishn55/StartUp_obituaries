@@ -47,15 +47,31 @@ export const ApplyJobDialog = ({ open, onOpenChange, jobTitle, company, jobId }:
     setIsLoading(true);
 
     try {
-      // TODO: Replace with actual API call when backend is ready
-      // const applicationData = new FormData();
-      // Object.entries(formData).forEach(([key, value]) => {
-      //   if (value) applicationData.append(key, value);
-      // });
-      // await api.applyToJob(jobId, applicationData);
-      
-      // Simulated API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!jobId) throw new Error("Missing job ID");
+
+      if (!formData.resume) {
+        throw new Error("Please upload your resume");
+      }
+
+      if ((formData.coverLetter?.trim()?.length || 0) < 100) {
+        throw new Error("Cover letter must be at least 100 characters");
+      }
+
+      // 1) Upload resume to get URL
+      const uploaded = await api.uploadFile(formData.resume, 'document');
+      const resumeUrl = (uploaded as any)?.data?.url || (uploaded as any)?.url;
+      if (!resumeUrl) throw new Error("Failed to upload resume");
+
+      // 2) Call real apply endpoint with JSON payload
+      await api.applyToJob(jobId, {
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        linkedIn: formData.linkedIn,
+        portfolio: formData.portfolio,
+        resume: resumeUrl,
+        coverLetter: formData.coverLetter,
+      });
       
       toast({
         title: "Application submitted!",

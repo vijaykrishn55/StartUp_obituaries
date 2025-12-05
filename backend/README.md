@@ -269,6 +269,59 @@ Server will run on `http://localhost:5000`
 
 ### **Story, Founder, Investor, Pitch, Application, Comment** models also available
 
+### **FailureReport Model** (NEW)
+```javascript
+{
+  title: String,
+  companyName: String,
+  industry: String,
+  location: { city, country, coordinates },
+  failureReason: ['funding', 'market-fit', 'team', 'competition', 'timing', 'legal', 'other'],
+  fundingRaised: Number,
+  employeeCount: Number,
+  operatingDuration: String,
+  lessonsLearned: String,
+  detailedStory: String,
+  author: ObjectId (ref: User),
+  helpfulCount: Number,
+  helpfulBy: [userId],
+  createdAt: Date
+}
+```
+
+### **Asset Model** (NEW - Resurrection Marketplace)
+```javascript
+{
+  title: String,
+  description: String,
+  category: ['domain', 'source-code', 'customer-data', 'ip', 'equipment', 'brand', 'other'],
+  price: Number,
+  originalValue: Number,
+  condition: ['new', 'like-new', 'good', 'fair'],
+  images: [String],
+  seller: ObjectId (ref: User),
+  companyName: String,
+  status: ['available', 'pending', 'sold'],
+  contactCount: Number,
+  createdAt: Date
+}
+```
+
+### **WarRoom Model** (NEW)
+```javascript
+{
+  title: String,
+  description: String,
+  host: ObjectId (ref: User),
+  participants: [ObjectId (ref: User)],
+  status: ['scheduled', 'live', 'ended'],
+  scheduledFor: Date,
+  maxParticipants: Number,
+  tags: [String],
+  createdAt: Date
+}
+```
+
 ## 🛣️ API Routes
 
 ### **Authentication Routes** (`/api/auth`)
@@ -392,6 +445,34 @@ Server will run on `http://localhost:5000`
 - `DELETE /:id` - Delete comment (protected)
 - `POST /:id/like` - Like comment (protected)
 - `POST /:id/reply` - Reply to comment (protected)
+
+### **Failure Report Routes** (`/api/failure-reports`)
+- `GET /` - Get all failure reports with pagination
+- `GET /stats` - Get failure statistics (by location, industry, reason)
+- `GET /:id` - Get failure report by ID
+- `POST /` - Create failure report (protected)
+- `PUT /:id` - Update failure report (protected)
+- `DELETE /:id` - Delete failure report (protected)
+- `POST /:id/helpful` - Mark report as helpful (protected)
+
+### **Asset Routes** (`/api/assets`) - Resurrection Marketplace
+- `GET /` - Get all assets with filters (category, price range, search)
+- `GET /:id` - Get asset by ID
+- `POST /` - Create asset listing (protected)
+- `PUT /:id` - Update asset listing (protected)
+- `DELETE /:id` - Delete asset listing (protected)
+- `POST /:id/contact` - Contact seller about asset (protected)
+
+### **War Room Routes** (`/api/war-rooms`)
+- `GET /` - Get all war rooms (active, upcoming, ended)
+- `GET /:id` - Get war room by ID with messages
+- `POST /` - Create war room (protected)
+- `PUT /:id` - Update war room (protected)
+- `DELETE /:id` - Delete war room (protected)
+- `POST /:id/join` - Join war room (protected)
+- `POST /:id/leave` - Leave war room (protected)
+- `POST /:id/messages` - Send message in war room (protected)
+- `GET /:id/messages` - Get war room messages (protected)
 
 ## 🔐 Authentication & Security
 
@@ -600,7 +681,22 @@ Paginated response:
 - [Mongoose Documentation](https://mongoosejs.com/)
 - [JWT.io](https://jwt.io/)
 - [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+- [Socket.io Documentation](https://socket.io/docs/)
 
 ---
 
 **Backend API Status:** ✅ Fully Operational
+
+**Last Updated:** December 2024
+
+**API Version:** 1.0.0
+
+**Features:**
+- ✅ Authentication & Authorization
+- ✅ Posts, Comments, Polls
+- ✅ Jobs & Applications  
+- ✅ Connections & Messaging
+- ✅ Stories, Founders, Investors
+- ✅ Failure Heatmap & Reports
+- ✅ Resurrection Marketplace (Assets)
+- ✅ Live Autopsy War Rooms

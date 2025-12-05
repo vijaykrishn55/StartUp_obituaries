@@ -65,6 +65,36 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  logout: () =>
+    apiFetch('/auth/logout', {
+      method: 'POST',
+    }),
+
+  refreshToken: () =>
+    apiFetch('/auth/refresh-token', {
+      method: 'POST',
+    }),
+
+  forgotPassword: (email: string) =>
+    apiFetch('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, password: string) =>
+    apiFetch('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    }),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiFetch('/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
+
+  getCurrentUser: () => apiFetch('/auth/me'),
+
   // Stories
   getStories: (params?: { category?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams();
@@ -82,6 +112,22 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  updateStory: (id: string, data: any) =>
+    apiFetch(`/stories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteStory: (id: string) =>
+    apiFetch(`/stories/${id}`, {
+      method: 'DELETE',
+    }),
+
+  likeStory: (id: string) =>
+    apiFetch(`/stories/${id}/like`, {
+      method: 'POST',
+    }),
+
   // Founders
   getFounders: (params?: { search?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams();
@@ -93,6 +139,23 @@ export const api = {
 
   getFounderById: (id: string) => apiFetch(`/founders/${id}`),
 
+  createFounderProfile: (data: any) =>
+    apiFetch('/founders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateFounderProfile: (id: string, data: any) =>
+    apiFetch(`/founders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteFounderProfile: (id: string) =>
+    apiFetch(`/founders/${id}`, {
+      method: 'DELETE',
+    }),
+
   // Investors
   getInvestors: (params?: { search?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams();
@@ -103,6 +166,23 @@ export const api = {
   },
 
   getInvestorById: (id: string) => apiFetch(`/investors/${id}`),
+
+  createInvestorProfile: (data: any) =>
+    apiFetch('/investors', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateInvestorProfile: (id: string, data: any) =>
+    apiFetch(`/investors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteInvestorProfile: (id: string) =>
+    apiFetch(`/investors/${id}`, {
+      method: 'DELETE',
+    }),
 
   // Jobs
   getJobs: (params?: { category?: string; search?: string; page?: number; limit?: number }) => {
@@ -127,6 +207,23 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  updateJob: (jobId: string, data: any) =>
+    apiFetch(`/jobs/${jobId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteJob: (jobId: string) =>
+    apiFetch(`/jobs/${jobId}`, {
+      method: 'DELETE',
+    }),
+
+  getJobApplications: (jobId: string) => apiFetch(`/jobs/${jobId}/applications`),
+
+  getMyJobApplications: () => apiFetch('/jobs/my-applications'),
+
+  getMyJobPostings: () => apiFetch('/jobs/my-postings'),
 
   // Posts
   getPosts: (params?: { page?: number; limit?: number; type?: string; author?: string }) => {
@@ -207,11 +304,81 @@ export const api = {
     return apiFetch(endpoint);
   },
 
+  getProfileAnalytics: () => apiFetch('/users/me/analytics'),
+
   updateProfile: (data: any) =>
     apiFetch('/users/me', {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
+
+  uploadAvatar: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/users/me/avatar`, {
+      method: 'POST',
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Avatar upload failed');
+    return await response.json();
+  },
+
+  addExperience: (data: any) =>
+    apiFetch('/users/me/experience', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateExperience: (expId: string, data: any) =>
+    apiFetch(`/users/me/experience/${expId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteExperience: (expId: string) =>
+    apiFetch(`/users/me/experience/${expId}`, {
+      method: 'DELETE',
+    }),
+
+  addEducation: (data: any) =>
+    apiFetch('/users/me/education', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  deleteEducation: (eduId: string) =>
+    apiFetch(`/users/me/education/${eduId}`, {
+      method: 'DELETE',
+    }),
+
+  addSkill: (data: any) =>
+    apiFetch('/users/me/skills', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  deleteSkill: (skillId: string) =>
+    apiFetch(`/users/me/skills/${skillId}`, {
+      method: 'DELETE',
+    }),
+
+  addVenture: (data: any) =>
+    apiFetch('/users/me/ventures', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  deleteVenture: (ventureId: string) =>
+    apiFetch(`/users/me/ventures/${ventureId}`, {
+      method: 'DELETE',
+    }),
+
+  getConnectionsCount: (userId?: string) => {
+    const endpoint = userId ? `/users/${userId}/connections-count` : '/users/me/connections-count';
+    return apiFetch(endpoint);
+  },
 
   // Notifications
   getNotifications: (params?: { page?: number; limit?: number }) => {
@@ -221,7 +388,7 @@ export const api = {
     return apiFetch(`/notifications?${query}`);
   },
 
-  getUnreadNotifications: () => apiFetch('/notifications?unread=true'),
+  getUnreadNotifications: () => apiFetch('/notifications?unreadOnly=true'),
 
   markNotificationAsRead: (id: string) =>
     apiFetch(`/notifications/${id}/read`, {
@@ -254,7 +421,7 @@ export const api = {
   sendConnectionRequest: (userId: string) =>
     apiFetch('/connections/request', {
       method: 'POST',
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ recipientId: userId }),
     }),
 
   acceptConnectionRequest: (requestId: string) =>
@@ -291,10 +458,10 @@ export const api = {
       body: JSON.stringify({ content }),
     }),
 
-  createConversation: (participantIds: string[]) =>
+  createConversation: (participantId: string) =>
     apiFetch('/messages/conversations', {
       method: 'POST',
-      body: JSON.stringify({ participants: participantIds }),
+      body: JSON.stringify({ participantId }),
     }),
 
   markConversationAsRead: (conversationId: string) =>
@@ -336,12 +503,108 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getPitches: (params?: { page?: number; limit?: number }) => {
+  getPitches: (params?: { page?: number; limit?: number; status?: string }) => {
     const query = new URLSearchParams();
     if (params?.page) query.append('page', params.page.toString());
     if (params?.limit) query.append('limit', params.limit.toString());
+    if (params?.status) query.append('status', params.status);
     return apiFetch(`/pitches?${query}`);
   },
+
+  getPitchById: (id: string) => apiFetch(`/pitches/${id}`),
+
+  updatePitch: (id: string, data: any) =>
+    apiFetch(`/pitches/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deletePitch: (id: string) =>
+    apiFetch(`/pitches/${id}`, {
+      method: 'DELETE',
+    }),
+
+  updatePitchStatus: (id: string, status: string, feedback?: string) =>
+    apiFetch(`/pitches/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, feedback }),
+    }),
+
+  getMyPitches: () => apiFetch('/pitches/my-pitches'),
+
+  getReceivedPitches: () => apiFetch('/pitches/received'),
+
+  // Comments
+  getCommentById: (id: string) => apiFetch(`/comments/${id}`),
+
+  updateComment: (id: string, content: string) =>
+    apiFetch(`/comments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
+
+  deleteComment: (id: string) =>
+    apiFetch(`/comments/${id}`, {
+      method: 'DELETE',
+    }),
+
+  likeComment: (id: string) =>
+    apiFetch(`/comments/${id}/like`, {
+      method: 'POST',
+    }),
+
+  replyToComment: (id: string, content: string) =>
+    apiFetch(`/comments/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+
+  getCommentReplies: (id: string) => apiFetch(`/comments/${id}/replies`),
+
+  // Applications
+  getApplicationById: (id: string) => apiFetch(`/applications/${id}`),
+
+  updateApplicationStatus: (id: string, status: string, notes?: string) =>
+    apiFetch(`/applications/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, notes }),
+    }),
+
+  withdrawApplication: (id: string) =>
+    apiFetch(`/applications/${id}/withdraw`, {
+      method: 'POST',
+    }),
+
+  // Search
+  globalSearch: (query: string, params?: { type?: string; page?: number; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    searchParams.append('q', query);
+    if (params?.type) searchParams.append('type', params.type);
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    return apiFetch(`/search?${searchParams}`);
+  },
+
+  searchUsers: (query: string, params?: { userType?: string; page?: number; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    searchParams.append('q', query);
+    if (params?.userType) searchParams.append('userType', params.userType);
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    return apiFetch(`/search/users?${searchParams}`);
+  },
+
+  // Mutual Connections
+  getMutualConnections: (userId: string) => apiFetch(`/connections/mutual/${userId}`),
+
+  // Unread notification count
+  getUnreadNotificationCount: () => apiFetch('/notifications/unread-count'),
+
+  // Upload deletion
+  deleteUploadedFile: (fileId: string) =>
+    apiFetch(`/upload/${fileId}`, {
+      method: 'DELETE',
+    }),
 
   // Failure Reports (Failure Heatmap)
   getFailureReports: (params?: { 

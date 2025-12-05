@@ -20,6 +20,7 @@ const { protect } = require('../middleware/auth');
 // Public routes
 router.get('/', getPosts);
 router.get('/trending', getTrendingPosts);
+router.get('/bookmarked', protect, getBookmarkedPosts); // MUST be before /:id
 router.get('/user/:userId', getUserPosts);
 router.get('/:id', getPostById);
 router.get('/:id/comments', getPostComments);
@@ -32,6 +33,5 @@ router.post('/:id/like', protect, toggleLike);
 router.post('/:id/bookmark', protect, toggleBookmark);
 router.post('/:id/comments', protect, addComment);
 router.post('/:id/poll/vote', protect, votePoll);
-router.get('/bookmarked', protect, getBookmarkedPosts);
 
 module.exports = router;

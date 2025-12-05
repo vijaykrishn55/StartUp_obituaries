@@ -36,6 +36,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     maxlength: 500
   },
+  headline: {
+    type: String,
+    maxlength: 200
+  },
+  role: String,
   company: String,
   location: String,
   verified: {

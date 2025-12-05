@@ -28,6 +28,7 @@ const Navigation = () => {
   const handleLogout = () => {
     logout();
     navigate("/");
+    window.location.reload();
   };
 
   const isActive = (path: string) => {
@@ -110,7 +111,9 @@ const Navigation = () => {
             </svg>
             <div className="flex flex-col items-start gap-0.5">
               <span className="text-xl font-bold text-foreground leading-tight tracking-tight">Startup Obituaries</span>
-              <span className="text-[10px] text-muted-foreground/70 font-medium tracking-[0.15em] uppercase leading-none">Where Failures Find Legacy</span>
+              {location.pathname === '/' && (
+                <span className="text-[10px] text-muted-foreground/70 font-medium tracking-[0.15em] uppercase leading-none">Where Failures Find Legacy</span>
+              )}
             </div>
           </button>
 
@@ -359,8 +362,22 @@ const Navigation = () => {
         )}
       </div>
 
-      <SignInDialog open={signInOpen} onOpenChange={setSignInOpen} />
-      <JoinNowDialog open={joinNowOpen} onOpenChange={setJoinNowOpen} />
+      <SignInDialog 
+        open={signInOpen} 
+        onOpenChange={setSignInOpen}
+        onSwitchToJoinNow={() => {
+          setSignInOpen(false);
+          setJoinNowOpen(true);
+        }}
+      />
+      <JoinNowDialog 
+        open={joinNowOpen} 
+        onOpenChange={setJoinNowOpen}
+        onSwitchToSignIn={() => {
+          setJoinNowOpen(false);
+          setSignInOpen(true);
+        }}
+      />
     </nav>
   );
 };

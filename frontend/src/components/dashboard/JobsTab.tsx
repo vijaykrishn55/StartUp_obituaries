@@ -2,9 +2,18 @@ import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search } from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
 import JobCard from "@/components/JobCard";
+import { PostJobDialog } from "@/components/PostJobDialog";
 import { api } from "@/lib/api";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface JobsTabProps {
   searchQuery?: string;
@@ -15,29 +24,35 @@ export const JobsTab = ({ searchQuery: externalSearchQuery = "" }: JobsTabProps)
   const [activeTab, setActiveTab] = useState("all");
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [postJobOpen, setPostJobOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    remote: false,
+    equity: false,
+    recentlyPosted: false,
+  });
 
   // Use external search query if provided (from header), otherwise use local
   const activeSearchQuery = externalSearchQuery || localSearchQuery;
 
   // Fetch jobs from API
-  useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        setLoading(true);
-        const response = await api.getJobs();
-        setJobs(response.data || response.jobs || response || []);
-      } catch (error) {
-        console.error('Failed to fetch jobs:', error);
-        setJobs([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getJobs();
+      setJobs(response.data || response.jobs || response || []);
+    } catch (error) {
+      console.error('Failed to fetch jobs:', error);
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchJobs();
   }, []);
 
-  // Filter jobs based on search and tab
+  // Filter jobs based on search, tab, and filters
   const filteredJobs = useMemo(() => {
     let filtered = jobs;
 
@@ -50,20 +65,37 @@ export const JobsTab = ({ searchQuery: externalSearchQuery = "" }: JobsTabProps)
       filtered = filtered.filter(job => job.isRemote);
     }
 
+    // Apply additional filters
+    if (filters.remote) {
+      filtered = filtered.filter(job => job.isRemote);
+    }
+    if (filters.equity) {
+      filtered = filtered.filter(job => job.equity);
+    }
+    if (filters.recentlyPosted) {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      filtered = filtered.filter(job => new Date(job.createdAt) >= weekAgo);
+    }
+
     // Filter by search query
     if (activeSearchQuery.trim()) {
       const query = activeSearchQuery.toLowerCase();
       filtered = filtered.filter(job =>
-        job.title.toLowerCase().includes(query) ||
-        job.company.toLowerCase().includes(query) ||
-        job.location.toLowerCase().includes(query) ||
+        job.title?.toLowerCase().includes(query) ||
+        job.company?.toLowerCase().includes(query) ||
+        job.location?.toLowerCase().includes(query) ||
         (job.salary && job.salary.toLowerCase().includes(query)) ||
-        job.tags.some(tag => tag.toLowerCase().includes(query))
+        job.tags?.some((tag: string) => tag.toLowerCase().includes(query))
       );
     }
 
     return filtered;
-  }, [activeTab, activeSearchQuery]);
+  }, [activeTab, activeSearchQuery, jobs, filters]);
+
+  const handleJobPosted = () => {
+    fetchJobs(); // Refresh jobs after posting
+  };
 
   return (
     <div className="space-y-6">
@@ -78,8 +110,37 @@ export const JobsTab = ({ searchQuery: externalSearchQuery = "" }: JobsTabProps)
             onChange={(e) => setLocalSearchQuery(e.target.value)}
           />
         </div>
-        <Button>Filter</Button>
-        <Button variant="outline">Post a Job</Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">
+              <SlidersHorizontal className="h-4 w-4 mr-2" />
+              Filter
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel>Filter Options</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuCheckboxItem
+              checked={filters.remote}
+              onCheckedChange={(checked) => setFilters(f => ({ ...f, remote: checked }))}
+            >
+              Remote Only
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={filters.equity}
+              onCheckedChange={(checked) => setFilters(f => ({ ...f, equity: checked }))}
+            >
+              Offers Equity
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={filters.recentlyPosted}
+              onCheckedChange={(checked) => setFilters(f => ({ ...f, recentlyPosted: checked }))}
+            >
+              Posted This Week
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button onClick={() => setPostJobOpen(true)}>Post a Job</Button>
       </div>
 
       {activeSearchQuery && (
@@ -116,6 +177,12 @@ export const JobsTab = ({ searchQuery: externalSearchQuery = "" }: JobsTabProps)
           )}
         </TabsContent>
       </Tabs>
+
+      <PostJobDialog 
+        open={postJobOpen} 
+        onOpenChange={setPostJobOpen}
+        onJobPosted={handleJobPosted}
+      />
     </div>
   );
 };

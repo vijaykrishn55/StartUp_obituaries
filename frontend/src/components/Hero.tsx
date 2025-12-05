@@ -2,9 +2,18 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Users, BookOpen, Briefcase } from "lucide-react";
 import heroImage from "@/assets/hero-image.jpg";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
-const Hero = () => {
+interface HeroProps {
+  onJoinNow?: () => void;
+  onSignIn?: () => void;
+}
+
+const Hero = ({ onJoinNow, onSignIn }: HeroProps) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     founders: 0,
     stories: 0,
@@ -21,9 +30,9 @@ const Hero = () => {
         ]);
         
         setStats({
-          founders: foundersRes.total || 0,
-          stories: storiesRes.total || 0,
-          jobs: jobsRes.total || 0
+          founders: foundersRes.total || foundersRes.data?.length || 0,
+          stories: storiesRes.total || storiesRes.data?.length || 0,
+          jobs: jobsRes.total || jobsRes.data?.length || 0
         });
       } catch (error) {
         console.error('Failed to fetch stats:', error);
@@ -31,6 +40,22 @@ const Hero = () => {
     };
     fetchStats();
   }, []);
+
+  const handleGetStarted = () => {
+    if (user) {
+      navigate('/dashboard');
+    } else if (onJoinNow) {
+      onJoinNow();
+    }
+  };
+
+  const handleExploreStories = () => {
+    if (user) {
+      navigate('/stories');
+    } else if (onJoinNow) {
+      onJoinNow();
+    }
+  };
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-background via-background to-secondary">
@@ -60,11 +85,11 @@ const Hero = () => {
             </p>
 
             <div className="flex flex-col gap-4 sm:flex-row sm:gap-4">
-              <Button size="lg" className="group">
-                Get Started
+              <Button size="lg" className="group" onClick={handleGetStarted}>
+                {user ? 'Go to Dashboard' : 'Get Started'}
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
-              <Button size="lg" variant="outline">
+              <Button size="lg" variant="outline" onClick={handleExploreStories}>
                 Explore Stories
               </Button>
             </div>

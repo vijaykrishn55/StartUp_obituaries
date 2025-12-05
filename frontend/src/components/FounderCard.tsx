@@ -37,7 +37,7 @@ const FounderCard = ({ name, avatar, bio, location, previousStartup, skills, ope
         <p className="line-clamp-3 text-sm text-muted-foreground">{bio}</p>
         
         <div className="flex flex-wrap gap-2">
-          {skills.map((skill, index) => (
+          {Array.isArray(skills) && skills.map((skill, index) => (
             <Badge key={index} variant="outline" className="text-xs">
               {skill}
             </Badge>

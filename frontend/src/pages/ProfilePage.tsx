@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { EditProfileDialog } from "@/components/EditProfileDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
   Eye, 
@@ -46,16 +48,24 @@ import {
   Trophy,
   Plus,
   Clock,
-  X
+  X,
+  Loader2
 } from "lucide-react";
 
 const ProfilePage = () => {
+  const { userId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const { toast } = useToast();
   const [profileData, setProfileData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
+  
+  // Determine if viewing own profile or another user's profile
+  const isOwnProfile = !userId || userId === user?._id || userId === user?.id;
+  const displayUser = isOwnProfile ? user : profileData;
   const [editAbout, setEditAbout] = useState("");
   const [editSocialLinks, setEditSocialLinks] = useState({
     website: "",
@@ -94,36 +104,251 @@ const ProfilePage = () => {
   });
   const [startupJourneys, setStartupJourneys] = useState<any[]>([]);
   const [achievements, setAchievements] = useState<any[]>([]);
+  const [connectionsCount, setConnectionsCount] = useState(0);
+  
+  // Analytics state
+  const [analytics, setAnalytics] = useState({
+    profileViews: 0,
+    postImpressions: 0,
+    newConnections: 0,
+    engagementRate: 0,
+    totalConnections: 0
+  });
 
   // Fetch profile data from API
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
-        const response = await api.getProfile();
+        // If viewing another user's profile, fetch their data
+        const response = userId && !isOwnProfile 
+          ? await api.getProfile(userId)
+          : await api.getProfile();
         const profile = response.data || response.user || response;
         
         setProfileData(profile);
         
-        // Update state with fetched data
+        // Update state with fetched data (for display and editing)
         if (profile.skills) setSkills(profile.skills);
-        if (profile.experience) setExperiences(profile.experience);
+        if (profile.experiences) setExperiences(profile.experiences);
         if (profile.education) setEducations(profile.education);
-        if (profile.ventures) setStartupJourneys(profile.ventures);
+        if (profile.startupJourneys) setStartupJourneys(profile.startupJourneys);
         if (profile.achievements) setAchievements(profile.achievements);
-        if (profile.bio) setEditAbout(profile.bio);
-        if (profile.socialLinks) setEditSocialLinks(profile.socialLinks);
+        if (isOwnProfile) {
+          if (profile.bio) setEditAbout(profile.bio);
+          setEditSocialLinks({
+            website: profile.website || "",
+            twitter: profile.twitter || "",
+            linkedin: profile.linkedIn || "",
+            github: profile.github || "",
+            email: profile.email || "",
+          });
+        }
+        
+        // Fetch connections count and analytics
+        try {
+          const connResponse: any = await api.getConnections();
+          const connections = connResponse.data || connResponse.connections || [];
+          setConnectionsCount(Array.isArray(connections) ? connections.length : 0);
+          
+          // Fetch analytics for own profile
+          if (isOwnProfile) {
+            const analyticsRes: any = await api.getProfileAnalytics();
+            if (analyticsRes.data) {
+              setAnalytics({
+                profileViews: analyticsRes.data.profileViews || 0,
+                postImpressions: analyticsRes.data.postImpressions || 0,
+                newConnections: analyticsRes.data.newConnections || 0,
+                engagementRate: analyticsRes.data.engagementRate || 0,
+                totalConnections: analyticsRes.data.totalConnections || 0
+              });
+              // Update connections count from analytics for accuracy
+              setConnectionsCount(analyticsRes.data.totalConnections || 0);
+            }
+          }
+        } catch (e) {
+          console.error('Failed to fetch connections/analytics');
+        }
       } catch (error) {
         console.error('Failed to fetch profile:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load profile data",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
 
-    if (user) {
+    if (user || userId) {
       fetchProfile();
     }
-  }, [user]);
+  }, [user, userId, isOwnProfile]);
+
+  // Save about section
+  const handleSaveAbout = async () => {
+    try {
+      setSaving(true);
+      await api.updateProfile({ bio: editAbout });
+      toast({ title: "Success", description: "About section updated" });
+      setEditingSection(null);
+      if (refreshUser) refreshUser();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update about section", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save social links
+  const handleSaveSocialLinks = async () => {
+    try {
+      setSaving(true);
+      await api.updateProfile({
+        website: editSocialLinks.website,
+        twitter: editSocialLinks.twitter,
+        linkedIn: editSocialLinks.linkedin,
+        github: editSocialLinks.github,
+      });
+      toast({ title: "Success", description: "Social links updated" });
+      setEditingSection(null);
+      if (refreshUser) refreshUser();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update social links", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Add skill
+  const handleAddSkill = async () => {
+    if (!newSkill.trim()) return;
+    try {
+      setSaving(true);
+      await api.addSkill({ name: newSkill.trim() });
+      setSkills([...skills, { name: newSkill.trim() }]);
+      setNewSkill("");
+      toast({ title: "Success", description: "Skill added" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add skill", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Remove skill
+  const handleRemoveSkill = async (skillId: string, index: number) => {
+    try {
+      if (skillId) {
+        await api.deleteSkill(skillId);
+      }
+      setSkills(skills.filter((_, i) => i !== index));
+      toast({ title: "Success", description: "Skill removed" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to remove skill", variant: "destructive" });
+    }
+  };
+
+  // Add experience
+  const handleAddExperience = async () => {
+    if (!newExperience.title || !newExperience.company) return;
+    try {
+      setSaving(true);
+      const response: any = await api.addExperience(newExperience);
+      setExperiences([...experiences, response.data || newExperience]);
+      setNewExperience({ title: "", company: "", period: "", description: "" });
+      setAddingExperience(false);
+      toast({ title: "Success", description: "Experience added" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add experience", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete experience
+  const handleDeleteExperience = async (expId: string, index: number) => {
+    try {
+      if (expId) {
+        await api.deleteExperience(expId);
+      }
+      setExperiences(experiences.filter((_, i) => i !== index));
+      toast({ title: "Success", description: "Experience removed" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to remove experience", variant: "destructive" });
+    }
+  };
+
+  // Add education
+  const handleAddEducation = async () => {
+    if (!newEducation.school || !newEducation.degree) return;
+    try {
+      setSaving(true);
+      const response: any = await api.addEducation(newEducation);
+      setEducations([...educations, response.data || newEducation]);
+      setNewEducation({ school: "", degree: "", period: "", details: "" });
+      setAddingEducation(false);
+      toast({ title: "Success", description: "Education added" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add education", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete education
+  const handleDeleteEducation = async (eduId: string, index: number) => {
+    try {
+      if (eduId) {
+        await api.deleteEducation(eduId);
+      }
+      setEducations(educations.filter((_, i) => i !== index));
+      toast({ title: "Success", description: "Education removed" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to remove education", variant: "destructive" });
+    }
+  };
+
+  // Add venture
+  const handleAddVenture = async () => {
+    if (!newVenture.name || !newVenture.role) return;
+    try {
+      setSaving(true);
+      const response: any = await api.addVenture(newVenture);
+      setStartupJourneys([...startupJourneys, response.data || newVenture]);
+      setNewVenture({
+        name: "", status: "active", role: "", period: "", description: "",
+        metrics: { key1: "", key2: "" }, lesson: "",
+      });
+      setAddingVenture(false);
+      toast({ title: "Success", description: "Venture added" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add venture", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete venture
+  const handleDeleteVenture = async (ventureId: string, index: number) => {
+    try {
+      if (ventureId) {
+        await api.deleteVenture(ventureId);
+      }
+      setStartupJourneys(startupJourneys.filter((_, i) => i !== index));
+      toast({ title: "Success", description: "Venture removed" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to remove venture", variant: "destructive" });
+    }
+  };
+
+  // Share profile
+  const handleShareProfile = () => {
+    const profileUrl = `${window.location.origin}/profile/${user?._id || user?.id}`;
+    navigator.clipboard.writeText(profileUrl);
+    toast({ title: "Success", description: "Profile link copied to clipboard" });
+  };
 
   const handleHomeClick = () => {
     navigate('/dashboard');
@@ -165,63 +390,88 @@ const ProfilePage = () => {
             <div className="flex flex-col md:flex-row gap-6 items-start md:items-end">
               <div className="relative">
                 <Avatar className="h-40 w-40 border-4 border-background">
-                  <AvatarImage src={user.avatar} />
-                  <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                  <AvatarImage src={displayUser?.avatar} />
+                  <AvatarFallback>{displayUser?.name?.charAt(0) || 'U'}</AvatarFallback>
                 </Avatar>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="absolute bottom-2 right-2 rounded-full h-8 w-8 p-0"
-                  onClick={() => setEditProfileOpen(true)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
+                {isOwnProfile && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="absolute bottom-2 right-2 rounded-full h-8 w-8 p-0"
+                    onClick={() => setEditProfileOpen(true)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
               
               <div className="flex-1 pb-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h1 className="text-3xl font-bold mb-1">{user.name}</h1>
+                    <h1 className="text-3xl font-bold mb-1">{displayUser?.name}</h1>
                     <p className="text-lg text-muted-foreground mb-2">
-                      {user.bio || `${user.userType === 'founder' ? 'Startup Founder' : user.userType === 'investor' ? 'Angel Investor' : user.userType === 'job-seeker' ? 'Job Seeker' : 'Professional'}`}
+                      {displayUser?.headline || displayUser?.bio || (displayUser?.userType === 'founder' ? 'Startup Founder' : displayUser?.userType === 'investor' ? 'Angel Investor' : displayUser?.userType === 'job-seeker' ? 'Job Seeker' : 'Professional')}
                     </p>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      {user.location && (
+                      {displayUser?.location && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
-                          {user.location}
+                          {displayUser.location}
+                        </span>
+                      )}
+                      {displayUser?.createdAt && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          Joined {new Date(displayUser.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                         </span>
                       )}
                       <span className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        Joined Recently
-                      </span>
-                      <span className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        247 connections
+                        {connectionsCount} connections
                       </span>
                     </div>
                   </div>
                   
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={handleShareProfile}>
                       <Share2 className="h-4 w-4 mr-2" />
                       Share Profile
                     </Button>
-                    <Button size="sm" onClick={() => setEditProfileOpen(true)}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Profile
-                    </Button>
+                    {isOwnProfile && (
+                      <Button size="sm" onClick={() => setEditProfileOpen(true)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Profile
+                      </Button>
+                    )}
+                    {!isOwnProfile && (
+                      <Button size="sm" onClick={() => navigate(`/messages?user=${displayUser?._id || displayUser?.id}`)}>
+                        Message
+                      </Button>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 mt-4">
-                  <Badge variant="default" className="flex items-center gap-1">
-                    <Trophy className="h-3 w-3" />
-                    Top Contributor
-                  </Badge>
-                  <Badge variant="secondary">Verified Founder</Badge>
-                  <Badge variant="outline">Open to Opportunities</Badge>
+                <div className="flex items-center gap-2 mt-4 flex-wrap">
+                  {displayUser?.userType && (
+                    <Badge variant="secondary" className="capitalize">
+                      {displayUser.userType.replace('-', ' ')}
+                    </Badge>
+                  )}
+                  {displayUser?.verified && (
+                    <Badge variant="default" className="flex items-center gap-1">
+                      <Trophy className="h-3 w-3" />
+                      Verified
+                    </Badge>
+                  )}
+                  {displayUser?.openToOpportunities && (
+                    <Badge variant="outline">Open to Opportunities</Badge>
+                  )}
+                  {connectionsCount >= 50 && (
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      Networker
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -238,34 +488,33 @@ const ProfilePage = () => {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   About
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="ml-auto"
-                    onClick={() => {
-                      setEditingSection(editingSection === "about" ? null : "about");
-                      setEditAbout(user?.bio || "");
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  {isOwnProfile && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="ml-auto"
+                      onClick={() => {
+                        setEditingSection(editingSection === "about" ? null : "about");
+                        setEditAbout(displayUser?.bio || "");
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {editingSection === "about" ? (
+                {editingSection === "about" && isOwnProfile ? (
                   <div className="space-y-3">
                     <textarea
-                      className="w-full min-h-[120px] p-3 text-sm border rounded-md resize-none"
+                      className="w-full min-h-[120px] p-3 text-sm border rounded-md resize-none bg-background text-foreground"
                       value={editAbout}
                       onChange={(e) => setEditAbout(e.target.value)}
                       placeholder="Tell us about yourself..."
                     />
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => {
-                        // Save logic here
-                        setEditingSection(null);
-                      }}>
-                        Save
+                      <Button size="sm" onClick={handleSaveAbout} disabled={saving}>
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
                       </Button>
                       <Button 
                         size="sm" 
@@ -278,7 +527,7 @@ const ProfilePage = () => {
                   </div>
                 ) : (
                   <p className="text-sm leading-relaxed">
-                    {user?.bio || "Serial entrepreneur with 8+ years of experience building and scaling tech companies. Currently building TechStart, an AI-powered platform that revolutionizes enterprise workflows. Previously founded CloudSync (acquired 2021) and led engineering at Google. Passionate about AI/ML, product development, and helping other founders navigate the startup journey. Angel investor in 12+ early-stage startups."}
+                    {displayUser?.bio || (isOwnProfile ? "Add a description about yourself..." : "No bio available.")}
                   </p>
                 )}
               </CardContent>
@@ -289,27 +538,29 @@ const ProfilePage = () => {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   Connect
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="ml-auto"
-                    onClick={() => {
-                      setEditingSection(editingSection === "social" ? null : "social");
-                      setEditSocialLinks({
-                        website: user?.website || "",
-                        twitter: user?.twitter || "",
-                        linkedin: user?.linkedIn || "",
-                        github: user?.github || "",
-                        email: user?.email || "",
-                      });
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  {isOwnProfile && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="ml-auto"
+                      onClick={() => {
+                        setEditingSection(editingSection === "social" ? null : "social");
+                        setEditSocialLinks({
+                          website: displayUser?.website || "",
+                          twitter: displayUser?.twitter || "",
+                          linkedin: displayUser?.linkedIn || "",
+                          github: displayUser?.github || "",
+                          email: displayUser?.email || "",
+                        });
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {editingSection === "social" ? (
+                {editingSection === "social" && isOwnProfile ? (
                   <div className="space-y-3">
                     <div className="space-y-2">
                       <label className="text-xs font-medium">Website</label>
@@ -352,11 +603,8 @@ const ProfilePage = () => {
                       />
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => {
-                        // Save logic here
-                        setEditingSection(null);
-                      }}>
-                        Save
+                      <Button size="sm" onClick={handleSaveSocialLinks} disabled={saving}>
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
                       </Button>
                       <Button 
                         size="sm" 
@@ -369,40 +617,50 @@ const ProfilePage = () => {
                   </div>
                 ) : (
                   <>
-                    {(user?.website || editSocialLinks.website) && (
+                    {displayUser?.website && (
                       <Button variant="outline" className="w-full justify-start" size="sm" asChild>
-                        <a href={user?.website || editSocialLinks.website} target="_blank" rel="noopener noreferrer">
+                        <a href={displayUser.website} target="_blank" rel="noopener noreferrer">
                           <LinkIcon className="h-4 w-4 mr-2" />
-                          {user?.website || "yourwebsite.com"}
+                          {displayUser.website}
                           <ExternalLink className="h-3 w-3 ml-auto" />
                         </a>
                       </Button>
                     )}
-                    {(user?.twitter || editSocialLinks.twitter) && (
-                      <Button variant="outline" className="w-full justify-start" size="sm">
-                        <Twitter className="h-4 w-4 mr-2" />
-                        {user?.twitter || "@username"}
-                        <ExternalLink className="h-3 w-3 ml-auto" />
+                    {displayUser?.twitter && (
+                      <Button variant="outline" className="w-full justify-start" size="sm" asChild>
+                        <a href={`https://twitter.com/${displayUser.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+                          <Twitter className="h-4 w-4 mr-2" />
+                          {displayUser.twitter}
+                          <ExternalLink className="h-3 w-3 ml-auto" />
+                        </a>
                       </Button>
                     )}
-                    {(user?.linkedIn || editSocialLinks.linkedin) && (
-                      <Button variant="outline" className="w-full justify-start" size="sm">
-                        <Linkedin className="h-4 w-4 mr-2" />
-                        {user?.linkedIn || "in/username"}
-                        <ExternalLink className="h-3 w-3 ml-auto" />
+                    {displayUser?.linkedIn && (
+                      <Button variant="outline" className="w-full justify-start" size="sm" asChild>
+                        <a href={`https://linkedin.com/${displayUser.linkedIn}`} target="_blank" rel="noopener noreferrer">
+                          <Linkedin className="h-4 w-4 mr-2" />
+                          {displayUser.linkedIn}
+                          <ExternalLink className="h-3 w-3 ml-auto" />
+                        </a>
                       </Button>
                     )}
-                    {(user?.github || editSocialLinks.github) && (
-                      <Button variant="outline" className="w-full justify-start" size="sm">
-                        <Github className="h-4 w-4 mr-2" />
-                        {user?.github || "github.com/username"}
-                        <ExternalLink className="h-3 w-3 ml-auto" />
+                    {displayUser?.github && (
+                      <Button variant="outline" className="w-full justify-start" size="sm" asChild>
+                        <a href={`https://github.com/${displayUser.github}`} target="_blank" rel="noopener noreferrer">
+                          <Github className="h-4 w-4 mr-2" />
+                          {displayUser.github}
+                          <ExternalLink className="h-3 w-3 ml-auto" />
+                        </a>
                       </Button>
                     )}
-                    <Button variant="outline" className="w-full justify-start" size="sm">
-                      <Mail className="h-4 w-4 mr-2" />
-                      {user?.email}
-                    </Button>
+                    {displayUser?.email && (
+                      <Button variant="outline" className="w-full justify-start" size="sm" asChild>
+                        <a href={`mailto:${displayUser.email}`}>
+                          <Mail className="h-4 w-4 mr-2" />
+                          {displayUser.email}
+                        </a>
+                      </Button>
+                    )}
                   </>
                 )}
               </CardContent>
@@ -413,18 +671,20 @@ const ProfilePage = () => {
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   Skills & Expertise
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="ml-auto"
-                    onClick={() => setEditingSection(editingSection === "skills" ? null : "skills")}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  {isOwnProfile && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="ml-auto"
+                      onClick={() => setEditingSection(editingSection === "skills" ? null : "skills")}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {editingSection === "skills" ? (
+                {isOwnProfile && editingSection === "skills" ? (
                   <div className="space-y-3">
                     <div className="flex gap-2">
                       <input
@@ -454,12 +714,12 @@ const ProfilePage = () => {
                     </div>
                     <div className="space-y-2">
                       {skills.map((skill, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                        <div key={skill._id || index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
                           <span className="text-sm">{skill.name}</span>
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            onClick={() => setSkills(skills.filter((_, i) => i !== index))}
+                            onClick={() => handleRemoveSkill(skill._id, index)}
                           >
                             <XCircle className="h-4 w-4" />
                           </Button>
@@ -472,13 +732,31 @@ const ProfilePage = () => {
                   </div>
                 ) : (
                   <>
+                    {skills.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <Code className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No skills added yet</p>
+                        {isOwnProfile && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="mt-2"
+                            onClick={() => setEditingSection("skills")}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Skills
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                    <>
                     <div className="space-y-2">
                       {skills.slice(0, 5).map((skill, index) => (
-                        <div key={index} className="flex items-center justify-between">
+                        <div key={skill._id || index} className="flex items-center justify-between">
                           <Badge variant="secondary" className="text-sm">{skill.name}</Badge>
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <ThumbsUp className="h-3 w-3" />
-                            <span>{skill.endorsements}</span>
+                            <span>{skill.endorsements || 0}</span>
                           </div>
                         </div>
                       ))}
@@ -487,6 +765,8 @@ const ProfilePage = () => {
                       <Button variant="outline" className="w-full" size="sm">
                         Show all {skills.length} skills
                       </Button>
+                    )}
+                    </>
                     )}
                   </>
                 )}
@@ -502,24 +782,43 @@ const ProfilePage = () => {
                   <Badge variant="outline" className="ml-2 text-xs">
                     {startupJourneys.length} Ventures
                   </Badge>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="ml-auto"
-                    onClick={() => setEditingSection(editingSection === "startups" ? null : "startups")}
-                  >
-                    {editingSection === "startups" ? "Done" : <Edit className="h-4 w-4" />}
-                  </Button>
+                  {isOwnProfile && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="ml-auto"
+                      onClick={() => setEditingSection(editingSection === "startups" ? null : "startups")}
+                    >
+                      {editingSection === "startups" ? "Done" : <Edit className="h-4 w-4" />}
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
                 {/* Timeline with connecting line */}
+                {startupJourneys.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Rocket className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No startup journeys added yet</p>
+                    {isOwnProfile && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3"
+                        onClick={() => { setEditingSection("startups"); setAddingVenture(true); }}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Your First Venture
+                      </Button>
+                    )}
+                  </div>
+                ) : (
                 <div className="relative space-y-6">
                   {/* Vertical timeline line */}
                   <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-blue-500 via-green-500 to-red-500/20" />
                   
                   {startupJourneys.map((venture, index) => (
-                    <div key={venture.id} className="relative pl-8">
+                    <div key={venture._id || index} className="relative pl-8">
                       {/* Timeline dot */}
                       <div className={`absolute left-0 top-1 w-6 h-6 rounded-full border-4 border-background shadow-lg
                         ${venture.status === 'active' ? 'bg-blue-500' : 
@@ -551,13 +850,13 @@ const ProfilePage = () => {
                             {venture.status === 'active' && <Zap className="h-3 w-3 mr-1" />}
                             {venture.status === 'acquired' && <CheckCircle2 className="h-3 w-3 mr-1" />}
                             {venture.status === 'closed' && <TrendingDown className="h-3 w-3 mr-1" />}
-                            {venture.status.charAt(0).toUpperCase() + venture.status.slice(1)}
+                            {venture.status ? venture.status.charAt(0).toUpperCase() + venture.status.slice(1) : 'Active'}
                           </Badge>
-                          {editingSection === "startups" && (
+                          {isOwnProfile && editingSection === "startups" && (
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => setStartupJourneys(startupJourneys.filter(v => v.id !== venture.id))}
+                              onClick={() => handleDeleteVenture(venture._id || venture.id, index)}
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -566,11 +865,12 @@ const ProfilePage = () => {
                         </div>
 
                         {/* Description */}
-                        <p className="text-sm mb-3">{venture.description}</p>
+                        {venture.description && <p className="text-sm mb-3">{venture.description}</p>}
 
-                        {/* Metrics Grid */}
+                        {/* Metrics Grid - only show if metrics exist and have values */}
+                        {venture.metrics && Object.keys(venture.metrics).length > 0 && Object.values(venture.metrics).some(v => v) && (
                         <div className="grid grid-cols-2 gap-2">
-                          {Object.entries(venture.metrics).map(([key, value]) => (
+                          {Object.entries(venture.metrics).filter(([_, value]) => value).map(([key, value]) => (
                             <div key={key} className={`flex items-center gap-2 p-2 rounded-md text-xs font-medium
                               ${venture.status === 'active' ? 'bg-blue-100 text-blue-900' : 
                                 venture.status === 'acquired' ? 'bg-green-100 text-green-900' : 'bg-gray-100 text-gray-900'}`}>
@@ -580,10 +880,11 @@ const ProfilePage = () => {
                               {key === 'exit' && <DollarSign className={`h-3.5 w-3.5 ${venture.status === 'active' ? 'text-blue-600' : venture.status === 'acquired' ? 'text-green-600' : 'text-gray-600'}`} />}
                               {key === 'pivots' && <Target className={`h-3.5 w-3.5 ${venture.status === 'active' ? 'text-blue-600' : venture.status === 'acquired' ? 'text-green-600' : 'text-gray-600'}`} />}
                               {key === 'duration' && <Clock className={`h-3.5 w-3.5 ${venture.status === 'active' ? 'text-blue-600' : venture.status === 'acquired' ? 'text-green-600' : 'text-gray-600'}`} />}
-                              <span>{value}</span>
+                              <span>{String(value)}</span>
                             </div>
                           ))}
                         </div>
+                        )}
 
                         {/* Lesson learned for closed ventures */}
                         {venture.lesson && (
@@ -598,9 +899,10 @@ const ProfilePage = () => {
                     </div>
                   ))}
                 </div>
+                )}
 
                 {/* Add new venture button and form */}
-                {editingSection === "startups" && !addingVenture && (
+                {isOwnProfile && editingSection === "startups" && !addingVenture && (
                   <Button 
                     variant="outline" 
                     className="w-full mt-6" 
@@ -612,7 +914,7 @@ const ProfilePage = () => {
                   </Button>
                 )}
                 
-                {addingVenture && (
+                {isOwnProfile && addingVenture && (
                   <div className="mt-6 p-4 bg-muted/30 rounded-lg space-y-3">
                     <h4 className="font-semibold text-sm mb-3">Add New Venture</h4>
                     <div>
@@ -762,19 +1064,39 @@ const ProfilePage = () => {
                 <CardTitle className="text-base flex items-center gap-2">
                   <Briefcase className="h-4 w-4" />
                   Experience
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="ml-auto"
-                    onClick={() => setEditingSection(editingSection === "experience" ? null : "experience")}
-                  >
-                    {editingSection === "experience" ? "Done" : <Edit className="h-4 w-4" />}
-                  </Button>
+                  {isOwnProfile && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="ml-auto"
+                      onClick={() => setEditingSection(editingSection === "experience" ? null : "experience")}
+                    >
+                      {editingSection === "experience" ? "Done" : <Edit className="h-4 w-4" />}
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                {experiences.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <Briefcase className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No experience added yet</p>
+                    {isOwnProfile && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={() => { setEditingSection("experience"); setAddingExperience(true); }}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Experience
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                <>
                 {experiences.map((exp, index) => (
-                  <div key={exp.id}>
+                  <div key={exp._id || index}>
                     {index > 0 && <Separator className="my-3" />}
                     <div className="flex gap-3">
                       <div className="flex-shrink-0">
@@ -787,13 +1109,13 @@ const ProfilePage = () => {
                           <div className="flex-1">
                             <h4 className="font-semibold text-sm">{exp.title}</h4>
                             <p className="text-xs text-muted-foreground">{exp.company} • {exp.period}</p>
-                            <p className="text-xs mt-1">{exp.description}</p>
+                            {exp.description && <p className="text-xs mt-1">{exp.description}</p>}
                           </div>
-                          {editingSection === "experience" && (
+                          {isOwnProfile && editingSection === "experience" && (
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => setExperiences(experiences.filter(e => e.id !== exp.id))}
+                              onClick={() => handleDeleteExperience(exp._id, index)}
                             >
                               <XCircle className="h-4 w-4" />
                             </Button>
@@ -803,7 +1125,9 @@ const ProfilePage = () => {
                     </div>
                   </div>
                 ))}
-                {editingSection === "experience" && !addingExperience && (
+                </>
+                )}
+                {isOwnProfile && editingSection === "experience" && !addingExperience && (
                   <Button 
                     variant="outline" 
                     className="w-full" 
@@ -813,7 +1137,7 @@ const ProfilePage = () => {
                     + Add Experience
                   </Button>
                 )}
-                {addingExperience && (
+                {isOwnProfile && addingExperience && (
                   <>
                     <Separator className="my-3" />
                     <div className="space-y-3 p-3 bg-muted/30 rounded-lg">
@@ -896,19 +1220,39 @@ const ProfilePage = () => {
                 <CardTitle className="text-base flex items-center gap-2">
                   <GraduationCap className="h-4 w-4" />
                   Education
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="ml-auto"
-                    onClick={() => setEditingSection(editingSection === "education" ? null : "education")}
-                  >
-                    {editingSection === "education" ? "Done" : <Edit className="h-4 w-4" />}
-                  </Button>
+                  {isOwnProfile && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="ml-auto"
+                      onClick={() => setEditingSection(editingSection === "education" ? null : "education")}
+                    >
+                      {editingSection === "education" ? "Done" : <Edit className="h-4 w-4" />}
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                {educations.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <GraduationCap className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No education added yet</p>
+                    {isOwnProfile && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={() => { setEditingSection("education"); setAddingEducation(true); }}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Education
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                <>
                 {educations.map((edu, index) => (
-                  <div key={edu.id}>
+                  <div key={edu._id || index}>
                     {index > 0 && <Separator className="my-3" />}
                     <div className="flex gap-3">
                       <div className="flex-shrink-0">
@@ -923,13 +1267,13 @@ const ProfilePage = () => {
                             <p className="text-xs text-muted-foreground">
                               {edu.degree} • {edu.period}
                             </p>
-                            <p className="text-xs mt-1">{edu.details}</p>
+                            {edu.details && <p className="text-xs mt-1">{edu.details}</p>}
                           </div>
-                          {editingSection === "education" && (
+                          {isOwnProfile && editingSection === "education" && (
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => setEducations(educations.filter(e => e.id !== edu.id))}
+                              onClick={() => handleDeleteEducation(edu._id, index)}
                             >
                               <XCircle className="h-4 w-4" />
                             </Button>
@@ -939,7 +1283,9 @@ const ProfilePage = () => {
                     </div>
                   </div>
                 ))}
-                {editingSection === "education" && !addingEducation && (
+                </>
+                )}
+                {isOwnProfile && editingSection === "education" && !addingEducation && (
                   <Button 
                     variant="outline" 
                     className="w-full" 
@@ -949,7 +1295,7 @@ const ProfilePage = () => {
                     + Add Education
                   </Button>
                 )}
-                {addingEducation && (
+                {isOwnProfile && addingEducation && (
                   <>
                     <Separator className="my-3" />
                     <div className="space-y-3 p-3 bg-muted/30 rounded-lg">
@@ -1032,30 +1378,50 @@ const ProfilePage = () => {
                 <CardTitle className="text-base flex items-center gap-2">
                   <Award className="h-4 w-4" />
                   Achievements
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="ml-auto"
-                    onClick={() => setEditingSection(editingSection === "achievements" ? null : "achievements")}
-                  >
-                    {editingSection === "achievements" ? "Done" : <Edit className="h-4 w-4" />}
-                  </Button>
+                  {isOwnProfile && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="ml-auto"
+                      onClick={() => setEditingSection(editingSection === "achievements" ? null : "achievements")}
+                    >
+                      {editingSection === "achievements" ? "Done" : <Edit className="h-4 w-4" />}
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {achievements.map((achievement) => {
-                  const iconConfig = {
+                {achievements.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <Trophy className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No achievements added yet</p>
+                    {isOwnProfile && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={() => setEditingSection("achievements")}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Achievement
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                <>
+                {achievements.map((achievement, index) => {
+                  const iconConfig: Record<string, { icon: any; color: string }> = {
                     trophy: { icon: Trophy, color: 'text-yellow-600' },
                     star: { icon: Star, color: 'text-blue-600' },
                     globe: { icon: Globe, color: 'text-green-600' },
                     award: { icon: Award, color: 'text-purple-600' },
                   };
-                  const config = iconConfig[achievement.icon as keyof typeof iconConfig];
+                  const config = iconConfig[achievement.icon as string] || { icon: Award, color: 'text-purple-600' };
                   const Icon = config.icon;
 
                   return (
                     <div 
-                      key={achievement.id}
+                      key={achievement._id || index}
                       className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                     >
                       <div className="flex-shrink-0">
@@ -1063,13 +1429,13 @@ const ProfilePage = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h5 className="font-semibold text-sm">{achievement.title}</h5>
-                        <p className="text-xs text-muted-foreground">{achievement.year}</p>
+                        {achievement.year && <p className="text-xs text-muted-foreground">{achievement.year}</p>}
                       </div>
-                      {editingSection === "achievements" && (
+                      {isOwnProfile && editingSection === "achievements" && (
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => setAchievements(achievements.filter(a => a.id !== achievement.id))}
+                          onClick={() => setAchievements(achievements.filter((_, i) => i !== index))}
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -1077,18 +1443,13 @@ const ProfilePage = () => {
                     </div>
                   );
                 })}
-
-                {/* Add Achievement Button */}
-                {editingSection === "achievements" && (
-                  <Button variant="outline" className="w-full mt-4" size="sm">
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add Achievement
-                  </Button>
+                </>
                 )}
 
-                {editingSection === "achievements" && (
-                  <Button variant="outline" className="w-full" size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
+                {/* Add Achievement Button */}
+                {isOwnProfile && editingSection === "achievements" && (
+                  <Button variant="outline" className="w-full mt-4" size="sm">
+                    <Plus className="h-3 w-3 mr-1" />
                     Add Achievement
                   </Button>
                 )}
@@ -1098,7 +1459,8 @@ const ProfilePage = () => {
 
           {/* Main Content - Analytics & Posts */}
           <div className="lg:col-span-8 space-y-6">
-            {/* Profile Strength */}
+            {/* Profile Strength - Only show on own profile */}
+            {isOwnProfile && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1107,41 +1469,81 @@ const ProfilePage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold">Advanced</span>
-                  <span className="text-muted-foreground">85%</span>
-                </div>
-                <Progress value={85} className="h-2" />
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    Profile photo added
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    Startup experience added
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    Skills verified
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <XCircle className="h-3 w-3 text-muted-foreground" />
-                    <span>Add portfolio projects</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    5+ connections
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <XCircle className="h-3 w-3 text-muted-foreground" />
-                    <span>Get 3 recommendations</span>
-                  </div>
-                </div>
+                {(() => {
+                  // Calculate profile strength based on real data
+                  const checks = {
+                    hasPhoto: displayUser?.avatar && !displayUser.avatar.includes('shadcn.png') && !displayUser.avatar.includes('dicebear'),
+                    hasExperience: experiences?.length > 0 || displayUser?.experiences?.length > 0,
+                    hasSkills: skills?.length > 0 || displayUser?.skills?.length > 0,
+                    hasVentures: startupJourneys?.length > 0 || displayUser?.startupJourneys?.length > 0,
+                    hasConnections: connectionsCount >= 5,
+                    hasBio: displayUser?.bio && displayUser.bio.length > 20,
+                    hasHeadline: displayUser?.headline && displayUser.headline.length > 5,
+                    hasLocation: !!displayUser?.location
+                  };
+                  
+                  const completed = Object.values(checks).filter(Boolean).length;
+                  const total = Object.keys(checks).length;
+                  const percentage = Math.round((completed / total) * 100);
+                  
+                  const getStrengthLabel = (pct: number) => {
+                    if (pct >= 90) return 'All-Star';
+                    if (pct >= 75) return 'Advanced';
+                    if (pct >= 50) return 'Intermediate';
+                    if (pct >= 25) return 'Beginner';
+                    return 'Getting Started';
+                  };
+                  
+                  return (
+                    <>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-semibold">{getStrengthLabel(percentage)}</span>
+                        <span className="text-muted-foreground">{percentage}%</span>
+                      </div>
+                      <Progress value={percentage} className="h-2" />
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className={`flex items-center gap-2 ${checks.hasPhoto ? 'text-muted-foreground' : ''}`}>
+                          {checks.hasPhoto ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-muted-foreground" />}
+                          Profile photo added
+                        </div>
+                        <div className={`flex items-center gap-2 ${checks.hasExperience ? 'text-muted-foreground' : ''}`}>
+                          {checks.hasExperience ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-muted-foreground" />}
+                          Experience added
+                        </div>
+                        <div className={`flex items-center gap-2 ${checks.hasSkills ? 'text-muted-foreground' : ''}`}>
+                          {checks.hasSkills ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-muted-foreground" />}
+                          Skills added
+                        </div>
+                        <div className={`flex items-center gap-2 ${checks.hasVentures ? 'text-muted-foreground' : ''}`}>
+                          {checks.hasVentures ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-muted-foreground" />}
+                          Startup journey added
+                        </div>
+                        <div className={`flex items-center gap-2 ${checks.hasConnections ? 'text-muted-foreground' : ''}`}>
+                          {checks.hasConnections ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-muted-foreground" />}
+                          5+ connections
+                        </div>
+                        <div className={`flex items-center gap-2 ${checks.hasBio ? 'text-muted-foreground' : ''}`}>
+                          {checks.hasBio ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-muted-foreground" />}
+                          Bio added
+                        </div>
+                        <div className={`flex items-center gap-2 ${checks.hasHeadline ? 'text-muted-foreground' : ''}`}>
+                          {checks.hasHeadline ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-muted-foreground" />}
+                          Headline added
+                        </div>
+                        <div className={`flex items-center gap-2 ${checks.hasLocation ? 'text-muted-foreground' : ''}`}>
+                          {checks.hasLocation ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <XCircle className="h-3 w-3 text-muted-foreground" />}
+                          Location added
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
+            )}
 
-            {/* Analytics Dashboard */}
+            {/* Analytics Dashboard - Only show on own profile */}
+            {isOwnProfile && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1154,38 +1556,43 @@ const ProfilePage = () => {
                   <div className="text-center p-4 bg-muted/50 rounded-lg">
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <Eye className="h-4 w-4 text-blue-500" />
-                      <span className="text-2xl font-bold">352</span>
+                      <span className="text-2xl font-bold">{analytics.profileViews}</span>
                     </div>
                     <p className="text-xs text-muted-foreground">Profile Views</p>
                   </div>
                   <div className="text-center p-4 bg-muted/50 rounded-lg">
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <TrendingUp className="h-4 w-4 text-green-500" />
-                      <span className="text-2xl font-bold">8.9K</span>
+                      <span className="text-2xl font-bold">
+                        {analytics.postImpressions >= 1000 
+                          ? `${(analytics.postImpressions / 1000).toFixed(1)}K` 
+                          : analytics.postImpressions}
+                      </span>
                     </div>
                     <p className="text-xs text-muted-foreground">Post Impressions</p>
                   </div>
                   <div className="text-center p-4 bg-muted/50 rounded-lg">
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <Users className="h-4 w-4 text-purple-500" />
-                      <span className="text-2xl font-bold">47</span>
+                      <span className="text-2xl font-bold">{analytics.newConnections}</span>
                     </div>
                     <p className="text-xs text-muted-foreground">New Connections</p>
                   </div>
                   <div className="text-center p-4 bg-muted/50 rounded-lg">
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <MessageCircle className="h-4 w-4 text-orange-500" />
-                      <span className="text-2xl font-bold">12.3%</span>
+                      <span className="text-2xl font-bold">{analytics.engagementRate}%</span>
                     </div>
                     <p className="text-xs text-muted-foreground">Engagement Rate</p>
                   </div>
                 </div>
-                <Button variant="outline" className="w-full mt-4">
+                <Button variant="outline" className="w-full mt-4" disabled>
                   <Download className="h-4 w-4 mr-2" />
                   Export Full Analytics Report
                 </Button>
               </CardContent>
             </Card>
+            )}
 
             {/* Tabs for Posts/Activity */}
             <Tabs defaultValue="posts" className="w-full">
@@ -1196,7 +1603,7 @@ const ProfilePage = () => {
               </TabsList>
               
               <TabsContent value="posts" className="mt-6">
-                <MyPosts />
+                <MyPosts userId={displayUser?._id || displayUser?.id} />
               </TabsContent>
               
               <TabsContent value="activity" className="mt-6 space-y-4">

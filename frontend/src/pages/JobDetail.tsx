@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ApplyJobDialog } from "@/components/ApplyJobDialog";
+import { useToast } from "@/hooks/use-toast";
 import {
   MapPin,
   DollarSign,
@@ -27,6 +28,7 @@ import {
 const JobDetail = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [applyDialogOpen, setApplyDialogOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [job, setJob] = useState<any>(null);
@@ -43,10 +45,63 @@ const JobDetail = () => {
       setLoading(true);
       const data: any = await api.getJobById(jobId!);
       setJob(data.data || data);
+      // Check if job is bookmarked from localStorage
+      const bookmarkedJobs = JSON.parse(localStorage.getItem('bookmarkedJobs') || '[]');
+      setBookmarked(bookmarkedJobs.includes(jobId));
     } catch (error) {
       console.error("Failed to load job:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBookmark = () => {
+    const bookmarkedJobs = JSON.parse(localStorage.getItem('bookmarkedJobs') || '[]');
+    
+    if (bookmarked) {
+      const newBookmarks = bookmarkedJobs.filter((id: string) => id !== jobId);
+      localStorage.setItem('bookmarkedJobs', JSON.stringify(newBookmarks));
+      setBookmarked(false);
+      toast({
+        title: "Bookmark removed",
+        description: "Job removed from your saved jobs",
+      });
+    } else {
+      bookmarkedJobs.push(jobId);
+      localStorage.setItem('bookmarkedJobs', JSON.stringify(bookmarkedJobs));
+      setBookmarked(true);
+      toast({
+        title: "Job bookmarked",
+        description: "Job saved to your bookmarks",
+      });
+    }
+  };
+
+  const handleShare = async () => {
+    const jobUrl = `${window.location.origin}/jobs/${jobId}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: job?.title || 'Check out this job',
+          text: `${job?.title} at ${job?.company}`,
+          url: jobUrl,
+        });
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          navigator.clipboard.writeText(jobUrl);
+          toast({
+            title: "Link copied",
+            description: "Job link copied to clipboard",
+          });
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(jobUrl);
+      toast({
+        title: "Link copied",
+        description: "Job link copied to clipboard",
+      });
     }
   };
 
@@ -154,11 +209,11 @@ const JobDetail = () => {
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => setBookmarked(!bookmarked)}
+                    onClick={handleBookmark}
                   >
                     <Bookmark className={`h-4 w-4 ${bookmarked ? "fill-current" : ""}`} />
                   </Button>
-                  <Button variant="outline" size="lg">
+                  <Button variant="outline" size="lg" onClick={handleShare}>
                     <Share2 className="h-4 w-4" />
                   </Button>
                 </div>

@@ -82,7 +82,43 @@ router.put('/:id/status', protect, async (req, res, next) => {
   }
 });
 
-// @desc    Withdraw application
+// @desc    Withdraw application (POST version)
+// @route   POST /api/applications/:id/withdraw
+// @access  Private
+router.post('/:id/withdraw', protect, async (req, res, next) => {
+  try {
+    const application = await Application.findById(req.params.id);
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'APPLICATION_NOT_FOUND', message: 'Application not found' }
+      });
+    }
+
+    // Check if user is the applicant
+    if (application.applicant.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Not authorized' }
+      });
+    }
+
+    await application.deleteOne();
+
+    // Update job applicants count
+    await Job.findByIdAndUpdate(application.job, {
+      $inc: { applicants: -1 },
+      $pull: { applications: application._id }
+    });
+
+    res.json({ success: true, message: 'Application withdrawn' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @desc    Withdraw application (DELETE version)
 // @route   DELETE /api/applications/:id
 // @access  Private
 router.delete('/:id', protect, async (req, res, next) => {

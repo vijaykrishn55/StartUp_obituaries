@@ -3,6 +3,55 @@ const router = express.Router();
 const Comment = require('../models/Comment');
 const { protect } = require('../middleware/auth');
 
+// @desc    Get comment by ID
+// @route   GET /api/comments/:id
+// @access  Public
+router.get('/:id', async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.id)
+      .populate('author', 'name avatar userType')
+      .populate({
+        path: 'replies',
+        populate: { path: 'author', select: 'name avatar userType' }
+      });
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'COMMENT_NOT_FOUND', message: 'Comment not found' }
+      });
+    }
+
+    res.json({ success: true, data: comment });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @desc    Get comment replies
+// @route   GET /api/comments/:id/replies
+// @access  Public
+router.get('/:id/replies', async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.id)
+      .populate({
+        path: 'replies',
+        populate: { path: 'author', select: 'name avatar userType' }
+      });
+
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'COMMENT_NOT_FOUND', message: 'Comment not found' }
+      });
+    }
+
+    res.json({ success: true, data: comment.replies || [] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // @desc    Update comment
 // @route   PUT /api/comments/:id
 // @access  Private

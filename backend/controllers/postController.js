@@ -36,7 +36,7 @@ exports.getPosts = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const posts = await Post.find(query)
-      .populate('author', 'name avatar userType verified')
+      .populate('author', 'name avatar userType verified company headline role')
       .sort({ [sort]: sortOrder })
       .limit(parseInt(limit))
       .skip(skip)
@@ -69,7 +69,7 @@ exports.getTrendingPosts = async (req, res, next) => {
     const { limit = 10 } = req.query;
 
     const posts = await Post.find({ published: true, trending: true })
-      .populate('author', 'name avatar userType verified')
+      .populate('author', 'name avatar userType verified company headline role')
       .sort({ views: -1, createdAt: -1 })
       .limit(parseInt(limit))
       .lean();
@@ -92,7 +92,7 @@ exports.getBookmarkedPosts = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const posts = await Post.find({ bookmarkedBy: req.user.id })
-      .populate('author', 'name avatar userType verified')
+      .populate('author', 'name avatar userType verified company headline role')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip)
@@ -126,7 +126,7 @@ exports.getUserPosts = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const posts = await Post.find({ author: req.params.userId, published: true })
-      .populate('author', 'name avatar userType verified')
+      .populate('author', 'name avatar userType verified company headline role')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip)
@@ -157,7 +157,7 @@ exports.getUserPosts = async (req, res, next) => {
 exports.getPostById = async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id)
-      .populate('author', 'name avatar userType verified bio company')
+      .populate('author', 'name avatar userType verified company headline role bio')
       .lean();
 
     if (!post) {
@@ -184,6 +184,8 @@ exports.getPostById = async (req, res, next) => {
 // @access  Private
 exports.createPost = async (req, res, next) => {
   try {
+    console.log('Creating post with data:', JSON.stringify(req.body, null, 2));
+    
     const postData = {
       ...req.body,
       author: req.user.id
@@ -191,13 +193,17 @@ exports.createPost = async (req, res, next) => {
 
     const post = await Post.create(postData);
     const populatedPost = await Post.findById(post._id)
-      .populate('author', 'name avatar userType verified');
+      .populate('author', 'name avatar userType verified company headline role');
 
     res.status(201).json({
       success: true,
       data: populatedPost
     });
   } catch (error) {
+    console.error('Post creation error:', error.message);
+    if (error.name === 'ValidationError') {
+      console.error('Validation errors:', error.errors);
+    }
     next(error);
   }
 };
@@ -228,7 +234,7 @@ exports.updatePost = async (req, res, next) => {
       req.params.id,
       req.body,
       { new: true, runValidators: true }
-    ).populate('author', 'name avatar userType verified');
+    ).populate('author', 'name avatar userType verified company headline role');
 
     res.json({
       success: true,

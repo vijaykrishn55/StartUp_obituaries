@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,8 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Rocket, Search, Users, Bell, Settings, LogOut, User, MessageSquare, Home, Sparkles, MapPin, Package, Video } from "lucide-react";
+import { Search, Users, Bell, Settings, LogOut, User, MessageSquare, Home, Sparkles, MapPin, Package, Video } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { NotificationDropdown } from "@/components/NotificationDropdown";
+import { api } from "@/lib/api";
 
 interface DashboardHeaderProps {
   onHomeClick?: () => void;
@@ -25,8 +28,31 @@ interface DashboardHeaderProps {
 export const DashboardHeader = ({ onHomeClick, onNetworkClick, onMessageClick, activeView = "feed", onSearch }: DashboardHeaderProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const [connectionRequests, setConnectionRequests] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const [connRes, msgRes]: any[] = await Promise.all([
+          api.getReceivedConnectionRequests().catch(() => ({ data: [] })),
+          api.getConversations().catch(() => ({ data: [] }))
+        ]);
+        const requests = connRes.data || connRes || [];
+        setConnectionRequests(Array.isArray(requests) ? requests.filter((r: any) => r.status === 'pending').length : 0);
+        const convs = msgRes.data || msgRes || [];
+        const unread = Array.isArray(convs) ? convs.reduce((acc: number, c: any) => acc + (c.unreadCount || 0), 0) : 0;
+        setUnreadMessages(unread);
+      } catch (e) {
+        console.error('Failed to fetch counts');
+      }
+    };
+    if (user) fetchCounts();
+  }, [user]);
 
   const handleLogout = () => {
+    logout();
     navigate("/");
   };
 
@@ -58,9 +84,76 @@ export const DashboardHeader = ({ onHomeClick, onNetworkClick, onMessageClick, a
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo */}
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-            <Rocket className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold text-foreground hidden sm:inline">StartUp Obituaries</span>
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate("/dashboard")}>
+            <svg 
+              className="h-9 w-9 transition-all group-hover:scale-110" 
+              viewBox="0 0 40 40" 
+              fill="none" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient id="dashLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style={{stopColor: '#ef4444', stopOpacity: 1}} />
+                  <stop offset="100%" style={{stopColor: '#dc2626', stopOpacity: 1}} />
+                </linearGradient>
+              </defs>
+              
+              {/* Modern tombstone shape */}
+              <path 
+                d="M10 35 V15 Q10 8 15 8 H25 Q30 8 30 15 V35 Q30 37 28 37 H12 Q10 37 10 35 Z" 
+                fill="currentColor"
+                className="text-foreground"
+                opacity="0.9"
+              />
+              
+              {/* Accent line - red gradient */}
+              <rect 
+                x="12" 
+                y="12" 
+                width="16" 
+                height="2" 
+                rx="1"
+                fill="url(#dashLogoGrad)"
+              />
+              
+              {/* Minimalist RIP */}
+              <text 
+                x="20" 
+                y="23" 
+                fontFamily="monospace" 
+                fontSize="6" 
+                fontWeight="600" 
+                fill="url(#dashLogoGrad)"
+                textAnchor="middle"
+                letterSpacing="1"
+              >
+                RIP
+              </text>
+              
+              {/* Simple declining graph line */}
+              <path 
+                d="M14 28 L17 26 L20 28 L23 25 L26 28" 
+                stroke="url(#dashLogoGrad)"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                opacity="0.7"
+              />
+              
+              {/* Base line */}
+              <line 
+                x1="12" 
+                y1="35" 
+                x2="28" 
+                y2="35" 
+                stroke="url(#dashLogoGrad)"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                opacity="0.5"
+              />
+            </svg>
+            <span className="text-xl font-bold text-foreground hidden sm:inline tracking-tight">Startup Obituaries</span>
           </div>
 
           {/* Search Bar */}
@@ -95,26 +188,18 @@ export const DashboardHeader = ({ onHomeClick, onNetworkClick, onMessageClick, a
               title="Network"
             >
               <Users className="h-5 w-5" />
-              {activeView !== "network" && (
+              {activeView !== "network" && connectionRequests > 0 && (
                 <Badge 
                   variant="destructive" 
                   className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
                 >
-                  2
+                  {connectionRequests > 9 ? '9+' : connectionRequests}
                 </Badge>
               )}
             </Button>
 
             {/* Notifications */}
-            <Button variant="ghost" size="sm" className="relative">
-              <Bell className="h-5 w-5" />
-              <Badge 
-                variant="destructive" 
-                className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-              >
-                5
-              </Badge>
-            </Button>
+            <NotificationDropdown />
 
             {/* Messages */}
             <Button 
@@ -125,12 +210,12 @@ export const DashboardHeader = ({ onHomeClick, onNetworkClick, onMessageClick, a
               title="Messages"
             >
               <MessageSquare className="h-5 w-5" />
-              {activeView !== "messages" && (
+              {activeView !== "messages" && unreadMessages > 0 && (
                 <Badge 
                   variant="destructive" 
                   className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
                 >
-                  3
+                  {unreadMessages > 9 ? '9+' : unreadMessages}
                 </Badge>
               )}
             </Button>
@@ -174,16 +259,16 @@ export const DashboardHeader = ({ onHomeClick, onNetworkClick, onMessageClick, a
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar>
-                    <AvatarImage src="https://github.com/shadcn.png" />
-                    <AvatarFallback>JD</AvatarFallback>
+                    <AvatarImage src={user?.avatar} />
+                    <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col">
-                    <p className="text-sm font-medium">John Doe</p>
-                    <p className="text-xs text-muted-foreground">john@example.com</p>
+                    <p className="text-sm font-medium">{user?.name || 'User'}</p>
+                    <p className="text-xs text-muted-foreground">{user?.email || ''}</p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />

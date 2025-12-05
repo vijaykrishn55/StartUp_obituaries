@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,7 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
   const [tags, setTags] = useState<string[]>([]);
   const [currentTag, setCurrentTag] = useState("");
   const [isPreview, setIsPreview] = useState(false);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
   
   // Postmortem specific
   const [companyName, setCompanyName] = useState("");
@@ -104,11 +105,67 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
   
   const { toast } = useToast();
 
-  const handleAddTag = () => {
-    if (currentTag.trim() && tags.length < 5) {
-      setTags([...tags, currentTag.trim()]);
-      setCurrentTag("");
+  // Helper function to insert/wrap text at cursor position
+  const insertFormatting = (prefix: string, suffix: string = '', placeholder: string = '') => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    
+    let newText: string;
+    let newCursorPos: number;
+    
+    if (selectedText) {
+      // Wrap selected text
+      newText = content.substring(0, start) + prefix + selectedText + suffix + content.substring(end);
+      newCursorPos = start + prefix.length + selectedText.length + suffix.length;
+    } else {
+      // Insert placeholder text
+      newText = content.substring(0, start) + prefix + placeholder + suffix + content.substring(end);
+      newCursorPos = start + prefix.length + placeholder.length;
     }
+    
+    setContent(newText);
+    
+    // Restore focus and set cursor position
+    setTimeout(() => {
+      textarea.focus();
+      if (selectedText) {
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      } else {
+        // Select the placeholder text so user can easily replace it
+        textarea.setSelectionRange(start + prefix.length, start + prefix.length + placeholder.length);
+      }
+    }, 0);
+  };
+
+  const handleAddTag = () => {
+    const trimmedTag = currentTag.trim();
+    
+    if (!trimmedTag) return;
+    
+    if (tags.length >= 5) {
+      toast({
+        title: "Maximum tags reached",
+        description: "You can only add up to 5 tags",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (trimmedTag.length > 30) {
+      toast({
+        title: "Tag too long",
+        description: "Each tag must be 30 characters or less",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setTags([...tags, trimmedTag]);
+    setCurrentTag("");
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
@@ -125,31 +182,67 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
       return;
     }
 
+    // Validate title length
+    if (title.trim().length < 10) {
+      toast({
+        title: "Title too short",
+        description: "Title must be at least 10 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (title.trim().length > 200) {
+      toast({
+        title: "Title too long",
+        description: "Title must be at most 200 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate content length
+    if (content.trim().length < 50) {
+      toast({
+        title: "Content too short",
+        description: "Content must be at least 50 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prepare tags array - ensure each tag is a separate string
+    const validTags = tags
+      .filter(tag => tag && tag.trim())
+      .map(tag => tag.trim())
+      .filter(tag => tag.length <= 30);
+
+    console.log('Publishing post with tags:', validTags);
+
     const post = {
       type: postType,
-      title,
-      subtitle,
-      content,
-      coverImage,
-      tags,
-      timestamp: new Date().toISOString(),
+      title: title.trim(),
+      subtitle: subtitle.trim() || undefined,
+      content: content.trim(),
+      coverImage: coverImage.trim() || undefined,
+      tags: validTags,
       ...(postType === "postmortem" && {
-        companyName,
-        foundedYear,
-        closedYear,
-        totalFunding,
+        companyName: companyName.trim() || undefined,
+        foundedYear: foundedYear.trim() || undefined,
+        closedYear: closedYear.trim() || undefined,
+        totalFunding: totalFunding.trim() || undefined,
       }),
       ...(postType === "funding" && {
-        fundingAmount,
-        fundingStage,
-        investors,
+        fundingAmount: fundingAmount.trim() || undefined,
+        fundingStage: fundingStage.trim() || undefined,
+        investors: investors.trim() || undefined,
       }),
       ...(postType === "job" && {
-        jobTitle,
-        jobType,
-        location,
-        salary,
-        equity,
+        jobTitle: jobTitle.trim() || undefined,
+        jobType: jobType.trim() || undefined,
+        location: location.trim() || undefined,
+        salary: salary.trim() || undefined,
+        equity: equity.trim() || undefined,
       }),
     };
 
@@ -476,7 +569,7 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
 
                 {/* Title */}
                 <div className="space-y-2">
-                  <Label htmlFor="title">Title *</Label>
+                  <Label htmlFor="title">Title * (10-200 characters)</Label>
                   <Input
                     id="title"
                     value={title}
@@ -491,6 +584,10 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
                     className="text-xl font-bold"
                     required
                   />
+                  <p className={`text-xs ${title.trim().length >= 10 && title.trim().length <= 200 ? 'text-green-600' : title.trim().length > 200 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                    {title.trim().length}/10 characters {title.trim().length >= 10 && title.trim().length <= 200 && '✓'}
+                    {title.trim().length > 200 && ' (too long!)'}
+                  </p>
                 </div>
 
                 {/* Subtitle */}
@@ -508,39 +605,40 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
 
                 {/* Formatting Toolbar */}
                 <div className="flex flex-wrap gap-1 p-2 bg-muted/50 rounded-lg">
-                  <Button variant="ghost" size="sm" title="Bold">
+                  <Button variant="ghost" size="sm" title="Bold" onClick={() => insertFormatting('**', '**', 'bold text')}>
                     <Bold className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" title="Italic">
+                  <Button variant="ghost" size="sm" title="Italic" onClick={() => insertFormatting('*', '*', 'italic text')}>
                     <Italic className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" title="Heading">
+                  <Button variant="ghost" size="sm" title="Heading" onClick={() => insertFormatting('\n## ', '\n', 'Heading')}>
                     <Heading2 className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" title="Bullet List">
+                  <Button variant="ghost" size="sm" title="Bullet List" onClick={() => insertFormatting('\n- ', '', 'List item')}>
                     <List className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" title="Numbered List">
+                  <Button variant="ghost" size="sm" title="Numbered List" onClick={() => insertFormatting('\n1. ', '', 'List item')}>
                     <ListOrdered className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" title="Quote">
+                  <Button variant="ghost" size="sm" title="Quote" onClick={() => insertFormatting('\n> ', '\n', 'Quote text')}>
                     <Quote className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" title="Code">
+                  <Button variant="ghost" size="sm" title="Code" onClick={() => insertFormatting('`', '`', 'code')}>
                     <Code className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" title="Link">
+                  <Button variant="ghost" size="sm" title="Link" onClick={() => insertFormatting('[', '](https://example.com)', 'link text')}>
                     <Link2 className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" title="Image">
+                  <Button variant="ghost" size="sm" title="Image" onClick={() => insertFormatting('![', '](https://example.com/image.jpg)', 'alt text')}>
                     <ImageIcon className="h-4 w-4" />
                   </Button>
                 </div>
 
                 {/* Content */}
                 <div className="space-y-2">
-                  <Label htmlFor="content">Content *</Label>
+                  <Label htmlFor="content">Content * (minimum 50 characters)</Label>
                   <Textarea
+                    ref={contentRef}
                     id="content"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
@@ -554,33 +652,46 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
                     className="min-h-[400px] font-mono text-sm"
                     required
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Estimated reading time: {calculateReadTime()} min
-                  </p>
+                  <div className="flex justify-between text-xs">
+                    <p className={content.trim().length >= 50 ? 'text-green-600' : 'text-muted-foreground'}>
+                      {content.trim().length}/50 characters {content.trim().length >= 50 && '✓'}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Estimated reading time: {calculateReadTime()} min
+                    </p>
+                  </div>
                 </div>
 
                 {/* Tags */}
                 <div className="space-y-2">
                   <Label htmlFor="tags">
-                    Tags (max 5) <Hash className="h-3 w-3 inline" />
+                    Tags (max 5, 30 chars each) <Hash className="h-3 w-3 inline" />
                   </Label>
                   <div className="flex gap-2">
-                    <Input
-                      id="tags"
-                      value={currentTag}
-                      onChange={(e) => setCurrentTag(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddTag();
-                        }
-                      }}
-                      placeholder="Add a tag..."
-                      disabled={tags.length >= 5}
-                    />
+                    <div className="flex-1">
+                      <Input
+                        id="tags"
+                        value={currentTag}
+                        onChange={(e) => setCurrentTag(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddTag();
+                          }
+                        }}
+                        placeholder="Add a tag..."
+                        disabled={tags.length >= 5}
+                        maxLength={30}
+                      />
+                      {currentTag && (
+                        <p className={`text-xs mt-1 ${currentTag.length > 30 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                          {currentTag.length}/30
+                        </p>
+                      )}
+                    </div>
                     <Button
                       onClick={handleAddTag}
-                      disabled={!currentTag.trim() || tags.length >= 5}
+                      disabled={!currentTag.trim() || tags.length >= 5 || currentTag.length > 30}
                     >
                       Add
                     </Button>

@@ -150,12 +150,12 @@ exports.addExperience = async (req, res) => {
 };
 
 // @desc    Update experience
-// @route   PUT /api/users/me/experience/:expId
+// @route   PUT /api/users/me/experience/:id
 // @access  Private
 exports.updateExperience = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    const experience = user.experiences.id(req.params.expId);
+    const experience = user.experiences.id(req.params.id);
     
     if (!experience) {
       return errorResponse(res, 'Experience not found', 404);
@@ -171,12 +171,12 @@ exports.updateExperience = async (req, res) => {
 };
 
 // @desc    Delete experience
-// @route   DELETE /api/users/me/experience/:expId
+// @route   DELETE /api/users/me/experience/:id
 // @access  Private
 exports.deleteExperience = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    user.experiences.pull(req.params.expId);
+    user.experiences.pull(req.params.id);
     await user.save();
 
     successResponse(res, { user }, 'Experience deleted successfully');
@@ -201,12 +201,12 @@ exports.addEducation = async (req, res) => {
 };
 
 // @desc    Delete education
-// @route   DELETE /api/users/me/education/:eduId
+// @route   DELETE /api/users/me/education/:id
 // @access  Private
 exports.deleteEducation = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    user.education.pull(req.params.eduId);
+    user.education.pull(req.params.id);
     await user.save();
 
     successResponse(res, { user }, 'Education deleted successfully');
@@ -231,12 +231,12 @@ exports.addSkill = async (req, res) => {
 };
 
 // @desc    Delete skill
-// @route   DELETE /api/users/me/skills/:skillId
+// @route   DELETE /api/users/me/skills/:id
 // @access  Private
 exports.deleteSkill = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    user.skills.pull(req.params.skillId);
+    user.skills.pull(req.params.id);
     await user.save();
 
     successResponse(res, { user }, 'Skill deleted successfully');
@@ -261,12 +261,12 @@ exports.addVenture = async (req, res) => {
 };
 
 // @desc    Delete venture
-// @route   DELETE /api/users/me/ventures/:ventureId
+// @route   DELETE /api/users/me/ventures/:id
 // @access  Private
 exports.deleteVenture = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    user.startupJourneys.pull(req.params.ventureId);
+    user.startupJourneys.pull(req.params.id);
     await user.save();
 
     successResponse(res, { user }, 'Venture deleted successfully');
