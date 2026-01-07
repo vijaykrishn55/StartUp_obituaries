@@ -125,7 +125,13 @@ backend/
    npm run seed
    ```
 
-6. Start the server:
+6. **(Optional) Seed India failure reports:**
+   ```bash
+   node seedIndiaReports.js
+   ```
+   This adds 10 realistic failure reports across Indian cities (Mumbai, Bangalore, Delhi, etc.) for testing the hierarchical map feature.
+
+7. Start the server:
    ```bash
    npm start
    ```
@@ -137,6 +143,7 @@ Server will run on `http://localhost:5000`
 - `npm start` - Start production server
 - `npm run dev` - Start development server with nodemon
 - `npm run seed` - Seed database with test data
+- `node seedIndiaReports.js` - Add sample India failure reports for map testing
 
 ## 📊 Database Models
 
@@ -272,22 +279,36 @@ Server will run on `http://localhost:5000`
 ### **FailureReport Model** (NEW)
 ```javascript
 {
-  title: String,
-  companyName: String,
+  startupName: String,
+  founder: ObjectId (ref: User),
   industry: String,
-  location: { city, country, coordinates },
-  failureReason: ['funding', 'market-fit', 'team', 'competition', 'timing', 'legal', 'other'],
+  location: {
+    city: String,
+    state: String,
+    country: String,
+    coordinates: {
+      type: 'Point',
+      coordinates: [longitude, latitude]  // GeoJSON format
+    }
+  },
   fundingRaised: Number,
-  employeeCount: Number,
-  operatingDuration: String,
-  lessonsLearned: String,
-  detailedStory: String,
-  author: ObjectId (ref: User),
-  helpfulCount: Number,
-  helpfulBy: [userId],
+  teamSize: Number,
+  operationalMonths: Number,
+  failureDate: Date,
+  primaryReason: String,
+  detailedAnalysis: String,
+  lessonsLearned: [String],
+  mistakes: [String],
+  adviceForOthers: String,
+  burnRate: Number,
+  revenueAtClosure: Number,
+  customerCount: Number,
+  isPublic: Boolean,
+  anonymousPost: Boolean,
   createdAt: Date
 }
 ```
+**Note:** Location includes GeoJSON coordinates for hierarchical map visualization (country → state → city)
 
 ### **Asset Model** (NEW - Resurrection Marketplace)
 ```javascript
@@ -312,15 +333,41 @@ Server will run on `http://localhost:5000`
 {
   title: String,
   description: String,
+  startupName: String,
+  situation: String,
   host: ObjectId (ref: User),
-  participants: [ObjectId (ref: User)],
-  status: ['scheduled', 'live', 'ended'],
-  scheduledFor: Date,
-  maxParticipants: Number,
+  participants: [{
+    user: ObjectId (ref: User),
+    role: String,  // 'Mentor', 'Investor', 'Founder', 'Expert', 'Supporter'
+    joinedAt: Date
+  }],
+  messages: [{
+    user: ObjectId (ref: User),
+    text: String,
+    type: String,  // 'chat', 'advice', 'question', 'resource', 'action'
+    timestamp: Date
+  }],
+  actionItems: [{
+    description: String,
+    status: String,  // 'pending', 'in-progress', 'completed'
+    assignedTo: ObjectId (ref: User),
+    createdAt: Date
+  }],
+  resources: [{
+    title: String,
+    url: String,
+    addedBy: ObjectId (ref: User),
+    addedAt: Date
+  }],
+  status: String,  // 'Active', 'Closed'
+  isLive: Boolean,
+  scheduledTime: Date,
+  summary: String,  // Added when host ends the session
   tags: [String],
   createdAt: Date
 }
 ```
+**Enhanced Features:** All participants can send messages with type indicators (chat, advice, question, resource, action)
 
 ## 🛣️ API Routes
 
@@ -687,7 +734,7 @@ Paginated response:
 
 **Backend API Status:** ✅ Fully Operational
 
-**Last Updated:** December 2024
+**Last Updated:** January 2026
 
 **API Version:** 1.0.0
 
@@ -697,6 +744,14 @@ Paginated response:
 - ✅ Jobs & Applications  
 - ✅ Connections & Messaging
 - ✅ Stories, Founders, Investors
-- ✅ Failure Heatmap & Reports
+- ✅ Failure Heatmap & Reports (with GeoJSON coordinates)
 - ✅ Resurrection Marketplace (Assets)
-- ✅ Live Autopsy War Rooms
+- ✅ Live Autopsy War Rooms (enhanced messaging for all participants)
+- ✅ Profile avatar uploads with full URL paths
+- ✅ Post share count tracking
+
+**Recent Enhancements (January 2026):**
+- ✅ Fixed avatar upload to return full URL paths
+- ✅ Fixed share count increment and tracking
+- ✅ Enhanced War Room messaging - all participants can use message types
+- ✅ Added seedIndiaReports.js for testing hierarchical map with 10 Indian cities

@@ -29,6 +29,7 @@ import AssetDetail from "./pages/AssetDetail";
 import ListAsset from "./pages/ListAsset";
 import MyListings from "./pages/MyListings";
 import BookmarkedPosts from "./pages/BookmarkedPosts";
+import JobApplications from "./pages/JobApplications";
 import Messages from "./pages/Messages";
 import WarRoomCreate from "./pages/WarRoomCreate";
 import { RedirectIfAuthed } from "@/components/RedirectIfAuthed";
@@ -52,6 +53,14 @@ const App = () => (
             <Route path="/investors/:id" element={<InvestorDetail />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/jobs/:jobId" element={<JobDetail />} />
+            <Route 
+              path="/jobs/:jobId/applications" 
+              element={
+                <ProtectedRoute>
+                  <JobApplications />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="/posts/:postId" element={<PostDetail />} />
             <Route 
               path="/posts/:postId/edit" 

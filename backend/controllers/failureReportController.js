@@ -29,7 +29,7 @@ exports.createFailureReport = async (req, res) => {
     }
 
     if (!location.city || !location.state || !location.country || 
-        !location.coordinates || !location.coordinates.latitude || !location.coordinates.longitude) {
+        !location.coordinates || !location.coordinates.coordinates || location.coordinates.coordinates.length !== 2) {
       return res.status(400).json({ 
         message: 'Complete location information including coordinates is required' 
       });
@@ -103,11 +103,12 @@ exports.getFailureReports = async (req, res) => {
 // Get heatmap data - geographic distribution
 exports.getHeatmapData = async (req, res) => {
   try {
-    const { industry, reason, dateFrom, dateTo } = req.query;
+    const { industry, reason, country, dateFrom, dateTo } = req.query;
 
     const filter = { isPublic: true };
     if (industry) filter.industry = industry;
     if (reason) filter.primaryReason = reason;
+    if (country) filter['location.country'] = country;
     if (dateFrom || dateTo) {
       filter.failureDate = {};
       if (dateFrom) filter.failureDate.$gte = new Date(dateFrom);
@@ -122,8 +123,8 @@ exports.getHeatmapData = async (req, res) => {
             city: '$location.city',
             state: '$location.state',
             country: '$location.country',
-            lat: '$location.coordinates.latitude',
-            lng: '$location.coordinates.longitude'
+            lng: { $arrayElemAt: ['$location.coordinates.coordinates', 0] },
+            lat: { $arrayElemAt: ['$location.coordinates.coordinates', 1] }
           },
           count: { $sum: 1 },
           totalFunding: { $sum: '$fundingRaised' },

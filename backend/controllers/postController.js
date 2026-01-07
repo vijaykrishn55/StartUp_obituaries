@@ -367,6 +367,34 @@ exports.toggleBookmark = async (req, res, next) => {
   }
 };
 
+// @desc    Increment share count
+// @route   POST /api/posts/:id/share
+// @access  Private
+exports.sharePost = async (req, res, next) => {
+  try {
+    const post = await Post.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'POST_NOT_FOUND', message: 'Post not found' }
+      });
+    }
+
+    post.shares = (post.shares || 0) + 1;
+    await post.save();
+
+    res.json({
+      success: true,
+      data: {
+        shares: post.shares
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get post comments
 // @route   GET /api/posts/:id/comments
 // @access  Public

@@ -11,6 +11,7 @@ const {
   deletePost,
   toggleLike,
   toggleBookmark,
+  sharePost,
   getPostComments,
   addComment,
   votePoll
@@ -31,6 +32,7 @@ router.put('/:id', protect, updatePost);
 router.delete('/:id', protect, deletePost);
 router.post('/:id/like', protect, toggleLike);
 router.post('/:id/bookmark', protect, toggleBookmark);
+router.post('/:id/share', protect, sharePost);
 router.post('/:id/comments', protect, addComment);
 router.post('/:id/poll/vote', protect, votePoll);
 

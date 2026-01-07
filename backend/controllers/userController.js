@@ -120,12 +120,14 @@ exports.uploadAvatar = async (req, res) => {
       return errorResponse(res, 'Please upload an image', 400);
     }
 
-    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-    
+    // Build full URL for avatar
+    const baseUrl = req.protocol + '://' + req.get('host');
+    const avatarUrl = `${baseUrl}/uploads/avatars/${req.file.filename}`;
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { avatar: avatarUrl },
-      { new: true }
+      { new: true, select: '-password' }
     );
 
     successResponse(res, { user }, 'Avatar uploaded successfully');

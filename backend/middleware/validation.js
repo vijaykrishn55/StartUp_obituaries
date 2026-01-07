@@ -17,7 +17,9 @@ exports.validate = (schema) => {
 
 // User registration validation
 exports.registerSchema = Joi.object({
-  name: Joi.string().min(2).max(100).required(),
+  name: Joi.string().min(2).max(100).pattern(/^[a-zA-Z\s]+$/).required().messages({
+    'string.pattern.base': 'Name must contain only letters and spaces'
+  }),
   email: Joi.string().email().required(),
   password: Joi.string().min(8).required(),
   userType: Joi.string().valid('founder', 'investor', 'job-seeker', 'mentor', 'other').required()

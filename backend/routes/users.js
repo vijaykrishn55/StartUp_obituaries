@@ -17,6 +17,7 @@ const {
   deleteVenture
 } = require('../controllers/userController');
 const { protect } = require('../middleware/auth');
+const { upload } = require('../utils/uploadService');
 
 // Public routes
 router.get('/', searchUsers);
@@ -24,7 +25,7 @@ router.get('/', searchUsers);
 // Protected routes - MUST come before /:id to prevent route shadowing
 router.get('/me', protect, getMyProfile);
 router.put('/me', protect, updateMyProfile);
-router.post('/me/avatar', protect, uploadAvatar);
+router.post('/me/avatar', protect, upload.single('avatar'), uploadAvatar);
 
 // Experience
 router.post('/me/experience', protect, addExperience);

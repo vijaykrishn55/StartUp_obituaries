@@ -106,6 +106,9 @@ const ProfilePage = () => {
   const [achievements, setAchievements] = useState<any[]>([]);
   const [connectionsCount, setConnectionsCount] = useState(0);
   
+  // Investor-specific state
+  const [investorProfile, setInvestorProfile] = useState<any>(null);
+  
   // Analytics state
   const [analytics, setAnalytics] = useState({
     profileViews: 0,
@@ -124,7 +127,7 @@ const ProfilePage = () => {
         const response = userId && !isOwnProfile 
           ? await api.getProfile(userId)
           : await api.getProfile();
-        const profile = response.data || response.user || response;
+        const profile = response.data?.user || response.data || response.user || response;
         
         setProfileData(profile);
         
@@ -143,6 +146,22 @@ const ProfilePage = () => {
             github: profile.github || "",
             email: profile.email || "",
           });
+        }
+        
+        // Fetch investor profile if user is an investor
+        if (profile.userType === 'investor') {
+          try {
+            const investorsRes: any = await api.getInvestors({ limit: 100 });
+            const investors = investorsRes.data || [];
+            const userInvestorProfile = investors.find((inv: any) => 
+              inv.user?._id === profile._id || inv.user === profile._id
+            );
+            if (userInvestorProfile) {
+              setInvestorProfile(userInvestorProfile);
+            }
+          } catch (e) {
+            console.error('Failed to fetch investor profile');
+          }
         }
         
         // Fetch connections count and analytics
@@ -457,6 +476,20 @@ const ProfilePage = () => {
                       {displayUser.userType.replace('-', ' ')}
                     </Badge>
                   )}
+                  {/* Investor-specific badges */}
+                  {investorProfile && (
+                    <>
+                      {investorProfile.type && (
+                        <Badge variant="outline">{investorProfile.type}</Badge>
+                      )}
+                      {investorProfile.checkSize && (
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          {investorProfile.checkSize}
+                        </Badge>
+                      )}
+                    </>
+                  )}
                   {displayUser?.verified && (
                     <Badge variant="default" className="flex items-center gap-1">
                       <Trophy className="h-3 w-3" />
@@ -750,15 +783,9 @@ const ProfilePage = () => {
                       </div>
                     ) : (
                     <>
-                    <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
                       {skills.slice(0, 5).map((skill, index) => (
-                        <div key={skill._id || index} className="flex items-center justify-between">
-                          <Badge variant="secondary" className="text-sm">{skill.name}</Badge>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <ThumbsUp className="h-3 w-3" />
-                            <span>{skill.endorsements || 0}</span>
-                          </div>
-                        </div>
+                        <Badge key={skill._id || index} variant="secondary" className="text-sm">{skill.name}</Badge>
                       ))}
                     </div>
                     {skills.length > 5 && (
@@ -773,7 +800,60 @@ const ProfilePage = () => {
               </CardContent>
             </Card>
 
-            {/* Startup Journey Timeline */}
+            {/* Investment Portfolio - Only for investors */}
+            {(profileData?.userType === 'investor' || user?.userType === 'investor') && investorProfile && (
+              <Card className="overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-green-500/10 to-emerald-500/10">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-green-500" />
+                    Investment Profile
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Focus Area</p>
+                      <p className="font-medium text-sm">{investorProfile.focus || 'Not specified'}</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Investment Stage</p>
+                      <p className="font-medium text-sm">{investorProfile.stage || 'Not specified'}</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Check Size</p>
+                      <p className="font-medium text-sm">{investorProfile.checkSize || 'Not specified'}</p>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Investor Type</p>
+                      <p className="font-medium text-sm">{investorProfile.type || 'Not specified'}</p>
+                    </div>
+                  </div>
+                  
+                  {investorProfile.investments && investorProfile.investments.length > 0 && (
+                    <div className="pt-4 border-t">
+                      <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                        <Briefcase className="h-4 w-4" />
+                        Portfolio ({investorProfile.investments.length} investments)
+                      </h4>
+                      <div className="space-y-3">
+                        {investorProfile.investments.map((inv: any, index: number) => (
+                          <div key={inv._id || index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                            <div>
+                              <p className="font-medium text-sm">{inv.company}</p>
+                              <p className="text-xs text-muted-foreground">{inv.year}</p>
+                            </div>
+                            <Badge variant="outline" className="font-mono">{inv.amount}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Startup Journey Timeline - Only for non-investors */}
+            {profileData?.userType !== 'investor' && user?.userType !== 'investor' && (
             <Card className="overflow-hidden">
               <CardHeader className="bg-gradient-to-r from-blue-500/10 to-purple-500/10">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -1057,6 +1137,7 @@ const ProfilePage = () => {
                 )}
               </CardContent>
             </Card>
+            )}
 
             {/* Experience */}
             <Card>

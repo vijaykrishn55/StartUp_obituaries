@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ApplyJobDialog } from "@/components/ApplyJobDialog";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   MapPin,
   DollarSign,
@@ -23,16 +24,22 @@ import {
   Bookmark,
   ExternalLink,
   Globe,
+  Check,
+  Loader2,
 } from "lucide-react";
 
 const JobDetail = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const [applyDialogOpen, setApplyDialogOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [job, setJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [hasApplied, setHasApplied] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     if (jobId) {
@@ -40,11 +47,42 @@ const JobDetail = () => {
     }
   }, [jobId]);
 
+  // Check if user has already applied to this job
+  useEffect(() => {
+    if (isAuthenticated && jobId) {
+      checkApplicationStatus();
+    }
+  }, [isAuthenticated, jobId]);
+
+  const checkApplicationStatus = async () => {
+    try {
+      const response: any = await api.getMyJobApplications();
+      const applications = response.data || response || [];
+      const existingApp = applications.find((app: any) => 
+        app.job?._id === jobId || app.job === jobId
+      );
+      if (existingApp) {
+        setHasApplied(true);
+        setApplicationStatus(existingApp.status);
+      }
+    } catch (error) {
+      console.error("Failed to check application status:", error);
+    }
+  };
+
   const fetchJobData = async () => {
     try {
       setLoading(true);
       const data: any = await api.getJobById(jobId!);
-      setJob(data.data || data);
+      const jobData = data.data || data;
+      setJob(jobData);
+      
+      // Check if current user is the job poster
+      if (user && jobData.postedBy) {
+        const posterId = typeof jobData.postedBy === 'object' ? jobData.postedBy._id : jobData.postedBy;
+        setIsOwner(posterId === user._id || posterId === user.id);
+      }
+      
       // Check if job is bookmarked from localStorage
       const bookmarkedJobs = JSON.parse(localStorage.getItem('bookmarkedJobs') || '[]');
       setBookmarked(bookmarkedJobs.includes(jobId));
@@ -53,6 +91,13 @@ const JobDetail = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleApplicationSuccess = () => {
+    setHasApplied(true);
+    setApplicationStatus('submitted');
+    // Refresh job data to update applicant count
+    fetchJobData();
   };
 
   const handleBookmark = () => {
@@ -188,7 +233,7 @@ const JobDetail = () => {
                       {job.isRemote && (
                         <Badge className="bg-accent text-accent-foreground">Remote</Badge>
                       )}
-                      {job.tags.map((tag, index) => (
+                      {job.tags?.map((tag, index) => (
                         <Badge key={index} variant="outline">
                           {tag}
                         </Badge>
@@ -198,14 +243,58 @@ const JobDetail = () => {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Users className="h-4 w-4" />
                       <span>{job.applicants} applicants</span>
+                      {hasApplied && (
+                        <Badge className="bg-green-500/10 text-green-600 border-green-500/20 ml-2">
+                          <Check className="h-3 w-3 mr-1" />
+                          Applied
+                        </Badge>
+                      )}
+                      {isOwner && (
+                        <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 ml-2">
+                          Your Posting
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
-                  <Button size="lg" className="flex-1" onClick={() => setApplyDialogOpen(true)}>
-                    Apply Now
-                  </Button>
+                  {isOwner ? (
+                    <Button 
+                      size="lg" 
+                      className="flex-1" 
+                      onClick={() => navigate(`/jobs/${jobId}/applications`)}
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      View Applications ({job.applicants})
+                    </Button>
+                  ) : hasApplied ? (
+                    <Button 
+                      size="lg" 
+                      className="flex-1 bg-green-600 hover:bg-green-700" 
+                      disabled
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      Application Submitted
+                      {applicationStatus && applicationStatus !== 'submitted' && (
+                        <Badge variant="secondary" className="ml-2 capitalize">
+                          {applicationStatus}
+                        </Badge>
+                      )}
+                    </Button>
+                  ) : !isAuthenticated ? (
+                    <Button 
+                      size="lg" 
+                      className="flex-1" 
+                      onClick={() => navigate('/login')}
+                    >
+                      Sign in to Apply
+                    </Button>
+                  ) : (
+                    <Button size="lg" className="flex-1" onClick={() => setApplyDialogOpen(true)}>
+                      Apply Now
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="lg"
@@ -237,30 +326,41 @@ const JobDetail = () => {
           {/* Sidebar */}
           <div className="lg:col-span-4 space-y-6">
             {/* Company Info */}
+            {job.companyInfo && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">About {job.company}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">{job.companyInfo.about}</p>
+                {job.companyInfo.about && (
+                  <p className="text-sm text-muted-foreground">{job.companyInfo.about}</p>
+                )}
 
                 <Separator />
 
                 <div className="space-y-2 text-sm">
+                  {job.companyInfo.size && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Company size</span>
                     <span className="font-medium">{job.companyInfo.size}</span>
                   </div>
+                  )}
+                  {job.companyInfo.founded && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Founded</span>
                     <span className="font-medium">{job.companyInfo.founded}</span>
                   </div>
+                  )}
+                  {job.companyInfo.funding && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Funding</span>
                     <span className="font-medium">{job.companyInfo.funding}</span>
                   </div>
+                  )}
                 </div>
 
+                {job.companyInfo.website && (
+                <>
                 <Separator />
 
                 <Button variant="outline" className="w-full" size="sm" asChild>
@@ -270,17 +370,21 @@ const JobDetail = () => {
                     <ExternalLink className="h-3 w-3 ml-2" />
                   </a>
                 </Button>
+                </>
+                )}
               </CardContent>
             </Card>
+            )}
 
             {/* Benefits */}
+            {job.benefits && job.benefits.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Benefits & Perks</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {job.benefits.map((benefit, index) => (
+                  {job.benefits.map((benefit: string, index: number) => (
                     <div key={index} className="flex items-start gap-2 text-sm">
                       <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
                       <span>{benefit}</span>
@@ -289,6 +393,7 @@ const JobDetail = () => {
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Job Details */}
             <Card>
@@ -333,17 +438,66 @@ const JobDetail = () => {
             </Card>
 
             {/* Apply CTA */}
+            {!isOwner && !hasApplied && (
             <Card className="bg-primary/5 border-primary/20">
               <CardContent className="pt-6">
                 <h3 className="font-semibold mb-2">Ready to apply?</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Join {job.company} and help shape the future of B2B SaaS.
+                  Join {job.company} and help shape the future.
                 </p>
-                <Button className="w-full" size="lg" onClick={() => setApplyDialogOpen(true)}>
-                  Apply for this position
+                {isAuthenticated ? (
+                  <Button className="w-full" size="lg" onClick={() => setApplyDialogOpen(true)}>
+                    Apply for this position
+                  </Button>
+                ) : (
+                  <Button className="w-full" size="lg" onClick={() => navigate('/login')}>
+                    Sign in to Apply
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+            )}
+
+            {/* Already Applied Card */}
+            {hasApplied && (
+            <Card className="bg-green-500/5 border-green-500/20">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <h3 className="font-semibold text-green-600">Application Submitted</h3>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  You've already applied for this position.
+                </p>
+                {applicationStatus && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Status:</span>
+                    <Badge className="capitalize" variant="outline">{applicationStatus}</Badge>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            )}
+
+            {/* Owner View Applications Card */}
+            {isOwner && (
+            <Card className="bg-blue-500/5 border-blue-500/20">
+              <CardContent className="pt-6">
+                <h3 className="font-semibold mb-2">Manage Applications</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  You have {job.applicants} applicant{job.applicants !== 1 ? 's' : ''} for this position.
+                </p>
+                <Button 
+                  className="w-full" 
+                  size="lg" 
+                  onClick={() => navigate(`/jobs/${jobId}/applications`)}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  View All Applications
                 </Button>
               </CardContent>
             </Card>
+            )}
           </div>
         </div>
       </div>
@@ -353,6 +507,8 @@ const JobDetail = () => {
         onOpenChange={setApplyDialogOpen}
         jobTitle={job.title}
         company={job.company}
+        jobId={job._id || jobId}
+        onSuccess={handleApplicationSuccess}
       />
     </div>
   );

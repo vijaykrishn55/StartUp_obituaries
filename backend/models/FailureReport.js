@@ -21,8 +21,15 @@ const failureReportSchema = new mongoose.Schema({
     state: { type: String, required: true },
     country: { type: String, required: true },
     coordinates: {
-      latitude: { type: Number, required: true },
-      longitude: { type: Number, required: true }
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point'
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        required: true
+      }
     }
   },
   fundingRaised: {

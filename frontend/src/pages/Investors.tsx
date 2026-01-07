@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, Users, Mail, Search, UserPlus, Loader2 } from "lucide-react";
+import { TrendingUp, Users, Mail, Search, UserPlus, Loader2, ExternalLink } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -46,14 +46,14 @@ const Investors = () => {
 
     const query = searchQuery.toLowerCase();
     return investors.filter(investor =>
-      investor.name.toLowerCase().includes(query) ||
-      investor.type.toLowerCase().includes(query) ||
-      investor.focus.toLowerCase().includes(query) ||
-      investor.stage.toLowerCase().includes(query) ||
-      investor.location.toLowerCase().includes(query) ||
-      investor.description.toLowerCase().includes(query)
+      investor.name?.toLowerCase().includes(query) ||
+      investor.type?.toLowerCase().includes(query) ||
+      investor.focus?.toLowerCase().includes(query) ||
+      investor.stage?.toLowerCase().includes(query) ||
+      investor.location?.toLowerCase().includes(query) ||
+      investor.description?.toLowerCase().includes(query)
     );
-  }, [searchQuery]);
+  }, [searchQuery, investors]);
 
   // Get visible investors based on count
   const visibleInvestors = filteredInvestors.slice(0, visibleCount);
@@ -172,9 +172,18 @@ const Investors = () => {
           )}
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {visibleInvestors.length > 0 ? (
-              visibleInvestors.map((investor, index) => (
-              <Card key={index} className="group overflow-hidden transition-all hover:shadow-lg">
+            {loading ? (
+              <div className="col-span-full text-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                <p className="text-muted-foreground">Loading investors...</p>
+              </div>
+            ) : visibleInvestors.length > 0 ? (
+              visibleInvestors.map((investor) => (
+              <Card 
+                key={investor._id} 
+                className="group overflow-hidden transition-all hover:shadow-lg cursor-pointer"
+                onClick={() => navigate(`/investors/${investor._id}`)}
+              >
                 <CardHeader className="pb-4">
                   <div className="mb-3 flex items-start justify-between">
                     <Avatar className="h-12 w-12 border-2 border-primary/20">
@@ -192,7 +201,7 @@ const Investors = () => {
                   <CardDescription>{investor.location}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">{investor.description}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{investor.description}</p>
                   
                   <div className="space-y-2 border-t border-border pt-4">
                     <div className="flex justify-between text-sm">
@@ -209,24 +218,31 @@ const Investors = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button 
                       className="flex-1" 
+                      variant="default" 
+                      size="sm"
+                      onClick={() => navigate(`/investors/${investor._id}`)}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      View Profile
+                    </Button>
+                    <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => handleContact(investor._id, investor.userId)}
+                      onClick={() => handleContact(investor._id, investor.user?._id)}
                     >
-                      <Mail className="mr-2 h-4 w-4" />
-                      Contact
+                      <Mail className="h-4 w-4" />
                     </Button>
-                    {investor.userId && (
+                    {investor.user?._id && (
                       <Button 
                         variant="outline" 
                         size="sm"
-                        disabled={connectingTo === investor.userId}
-                        onClick={() => handleConnect(investor._id, investor.userId)}
+                        disabled={connectingTo === investor.user._id}
+                        onClick={() => handleConnect(investor._id, investor.user._id)}
                       >
-                        {connectingTo === investor.userId ? (
+                        {connectingTo === investor.user._id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <UserPlus className="h-4 w-4" />

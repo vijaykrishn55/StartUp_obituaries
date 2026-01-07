@@ -34,7 +34,7 @@ const fileFilter = (req, file, cb) => {
   // Allowed document types
   const documentTypes = /pdf|doc|docx|ppt|pptx/;
   
-  const extname = path.extname(file.originalname).toLowerCase();
+  const extname = path.extname(file.originalname).toLowerCase().slice(1); // Remove the dot
   const mimetype = file.mimetype;
   
   if (file.fieldname === 'avatar' || file.fieldname === 'coverImage') {
@@ -46,7 +46,7 @@ const fileFilter = (req, file, cb) => {
   }
   
   if (file.fieldname === 'resume' || file.fieldname === 'document') {
-    if (documentTypes.test(extname.slice(1))) {
+    if (documentTypes.test(extname)) {
       return cb(null, true);
     } else {
       return cb(new Error('Only document files are allowed (pdf, doc, docx, ppt, pptx)'));

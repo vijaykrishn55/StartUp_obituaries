@@ -20,9 +20,10 @@ interface ApplyJobDialogProps {
   jobTitle: string;
   company: string;
   jobId?: string;
+  onSuccess?: () => void;
 }
 
-export const ApplyJobDialog = ({ open, onOpenChange, jobTitle, company, jobId }: ApplyJobDialogProps) => {
+export const ApplyJobDialog = ({ open, onOpenChange, jobTitle, company, jobId, onSuccess }: ApplyJobDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   
@@ -77,6 +78,11 @@ export const ApplyJobDialog = ({ open, onOpenChange, jobTitle, company, jobId }:
         title: "Application submitted!",
         description: `Your application for ${jobTitle} at ${company} has been submitted successfully.`,
       });
+
+      // Call success callback
+      if (onSuccess) {
+        onSuccess();
+      }
 
       // Reset form
       setFormData({

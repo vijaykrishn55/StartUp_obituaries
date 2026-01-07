@@ -6,15 +6,18 @@ import { PostJobDialog } from "@/components/PostJobDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Briefcase, Search } from "lucide-react";
+import { Briefcase, Search, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Jobs = () => {
+  const { isAuthenticated, user } = useAuth();
   const [postJobOpen, setPostJobOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [visibleCount, setVisibleCount] = useState(6);
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -31,6 +34,24 @@ const Jobs = () => {
     };
     fetchJobs();
   }, []);
+
+  // Fetch user's applications to check which jobs they've applied to
+  useEffect(() => {
+    const fetchMyApplications = async () => {
+      if (!isAuthenticated) return;
+      try {
+        const response: any = await api.getMyJobApplications();
+        const applications = response.data || response || [];
+        const appliedIds = new Set<string>(
+          applications.map((app: any) => app.job?._id || app.job).filter(Boolean)
+        );
+        setAppliedJobIds(appliedIds);
+      } catch (error) {
+        console.error('Failed to fetch applications:', error);
+      }
+    };
+    fetchMyApplications();
+  }, [isAuthenticated]);
 
   // Filter jobs based on search query and active tab
   const filteredJobs = useMemo(() => {
@@ -49,15 +70,15 @@ const Jobs = () => {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(job =>
-        job.title.toLowerCase().includes(query) ||
-        job.company.toLowerCase().includes(query) ||
-        job.location.toLowerCase().includes(query) ||
-        job.tags.some(tag => tag.toLowerCase().includes(query))
+        job.title?.toLowerCase().includes(query) ||
+        job.company?.toLowerCase().includes(query) ||
+        job.location?.toLowerCase().includes(query) ||
+        job.tags?.some((tag: string) => tag.toLowerCase().includes(query))
       );
     }
 
     return filtered;
-  }, [activeTab, searchQuery]);
+  }, [activeTab, searchQuery, jobs]);
 
   // Get visible jobs based on count
   const visibleJobs = filteredJobs.slice(0, visibleCount);
@@ -125,9 +146,22 @@ const Jobs = () => {
 
             <TabsContent value={activeTab} className="space-y-6">
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {visibleJobs.length > 0 ? (
-                  visibleJobs.map((job, index) => (
-                    <JobCard key={index} {...job} />
+                {loading ? (
+                  <div className="col-span-full text-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                    <p className="text-muted-foreground">Loading jobs...</p>
+                  </div>
+                ) : visibleJobs.length > 0 ? (
+                  visibleJobs.map((job) => (
+                    <JobCard 
+                      key={job._id} 
+                      jobId={job._id} 
+                      hasApplied={appliedJobIds.has(job._id)}
+                      isOwner={user && job.postedBy && (
+                        (typeof job.postedBy === 'object' ? job.postedBy._id : job.postedBy) === (user._id || user.id)
+                      )}
+                      {...job} 
+                    />
                   ))
                 ) : (
                   <div className="col-span-full text-center py-12">

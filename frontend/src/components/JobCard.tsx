@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ApplyJobDialog } from "@/components/ApplyJobDialog";
-import { MapPin, DollarSign, Clock, Building2 } from "lucide-react";
+import { MapPin, DollarSign, Clock, Building2, Check, Users } from "lucide-react";
 
 interface JobCardProps {
   title: string;
@@ -16,10 +16,27 @@ interface JobCardProps {
   tags: string[];
   isRemote: boolean;
   jobId?: string;
+  hasApplied?: boolean;
+  isOwner?: boolean;
+  applicants?: number;
 }
 
-const JobCard = ({ title, company, location, type, salary, postedDate, tags, isRemote, jobId }: JobCardProps) => {
+const JobCard = ({ 
+  title, 
+  company, 
+  location, 
+  type, 
+  salary, 
+  postedDate, 
+  tags, 
+  isRemote, 
+  jobId,
+  hasApplied = false,
+  isOwner = false,
+  applicants = 0
+}: JobCardProps) => {
   const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [applied, setApplied] = useState(hasApplied);
   const navigate = useNavigate();
 
   const handleCardClick = () => {
@@ -28,15 +45,36 @@ const JobCard = ({ title, company, location, type, salary, postedDate, tags, isR
 
   const handleApplyClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setApplyDialogOpen(true);
+    if (isOwner) {
+      navigate(`/jobs/${jobId}/applications`);
+    } else if (!applied) {
+      setApplyDialogOpen(true);
+    }
+  };
+
+  const handleApplicationSuccess = () => {
+    setApplied(true);
   };
 
   return (
     <Card className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg" onClick={handleCardClick}>
       <CardHeader>
         <div className="mb-2 flex items-center justify-between">
-          <Badge variant="secondary">{type}</Badge>
-          {isRemote && <Badge className="bg-accent text-accent-foreground">Remote</Badge>}
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{type}</Badge>
+            {isRemote && <Badge className="bg-accent text-accent-foreground">Remote</Badge>}
+          </div>
+          {applied && (
+            <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+              <Check className="h-3 w-3 mr-1" />
+              Applied
+            </Badge>
+          )}
+          {isOwner && (
+            <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+              Your Post
+            </Badge>
+          )}
         </div>
         <CardTitle className="transition-colors group-hover:text-primary">{title}</CardTitle>
         <CardDescription className="flex items-center gap-1">
@@ -71,7 +109,19 @@ const JobCard = ({ title, company, location, type, salary, postedDate, tags, isR
         </div>
       </CardContent>
       <CardFooter>
-        <Button className="w-full" onClick={handleApplyClick}>Apply Now</Button>
+        {isOwner ? (
+          <Button className="w-full" variant="outline" onClick={handleApplyClick}>
+            <Users className="h-4 w-4 mr-2" />
+            View Applications {applicants > 0 && `(${applicants})`}
+          </Button>
+        ) : applied ? (
+          <Button className="w-full bg-green-600 hover:bg-green-700" disabled onClick={handleApplyClick}>
+            <Check className="h-4 w-4 mr-2" />
+            Application Submitted
+          </Button>
+        ) : (
+          <Button className="w-full" onClick={handleApplyClick}>Apply Now</Button>
+        )}
       </CardFooter>
 
       <ApplyJobDialog 
@@ -79,6 +129,8 @@ const JobCard = ({ title, company, location, type, salary, postedDate, tags, isR
         onOpenChange={setApplyDialogOpen}
         jobTitle={title}
         company={company}
+        jobId={jobId}
+        onSuccess={handleApplicationSuccess}
       />
     </Card>
   );

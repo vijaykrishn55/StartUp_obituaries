@@ -4,7 +4,7 @@ import FounderCard from "@/components/FounderCard";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Search } from "lucide-react";
+import { Users, Search, Loader2 } from "lucide-react";
 
 const Founders = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,13 +36,13 @@ const Founders = () => {
 
     const query = searchQuery.toLowerCase();
     return founders.filter(founder => 
-      founder.name.toLowerCase().includes(query) ||
-      founder.location.toLowerCase().includes(query) ||
-      founder.previousStartup.toLowerCase().includes(query) ||
-      founder.bio.toLowerCase().includes(query) ||
-      founder.skills.some(skill => skill.toLowerCase().includes(query))
+      founder.name?.toLowerCase().includes(query) ||
+      founder.location?.toLowerCase().includes(query) ||
+      founder.previousStartup?.toLowerCase().includes(query) ||
+      founder.bio?.toLowerCase().includes(query) ||
+      founder.skills?.some((skill: string) => skill.toLowerCase().includes(query))
     );
-  }, [searchQuery]);
+  }, [searchQuery, founders]);
 
   // Get visible founders based on count
   const visibleFounders = filteredFounders.slice(0, visibleCount);
@@ -93,9 +93,14 @@ const Founders = () => {
           )}
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {visibleFounders.length > 0 ? (
+            {loading ? (
+              <div className="col-span-full text-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                <p className="text-muted-foreground">Loading founders...</p>
+              </div>
+            ) : visibleFounders.length > 0 ? (
               visibleFounders.map((founder, index) => (
-                <FounderCard key={index} {...founder} />
+                <FounderCard key={founder._id || index} {...founder} />
               ))
             ) : (
               <div className="col-span-full text-center py-12">

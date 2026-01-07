@@ -12,6 +12,39 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password, userType } = req.body;
 
+    // Simple field validation
+    if (!name || !email || !password || !userType) {
+      return errorResponse(res, 'Please provide all required fields: name, email, password, and userType', 400);
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return errorResponse(res, 'Please provide a valid email address', 400);
+    }
+
+    // Validate password length
+    if (password.length < 8) {
+      return errorResponse(res, 'Password must be at least 8 characters long', 400);
+    }
+
+    // Validate name length
+    if (name.trim().length < 2) {
+      return errorResponse(res, 'Name must be at least 2 characters long', 400);
+    }
+
+    // Validate name contains letters (not just numbers or special characters)
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (!nameRegex.test(name.trim())) {
+      return errorResponse(res, 'Name must contain only letters and spaces', 400);
+    }
+
+    // Validate userType
+    const validUserTypes = ['founder', 'investor', 'job-seeker', 'mentor', 'other'];
+    if (!validUserTypes.includes(userType)) {
+      return errorResponse(res, 'Invalid user type. Must be one of: founder, investor, job-seeker, mentor, other', 400);
+    }
+
     // Check if user exists
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -64,6 +97,17 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // Simple field validation
+    if (!email || !password) {
+      return errorResponse(res, 'Please provide both email and password', 400);
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return errorResponse(res, 'Please provide a valid email address', 400);
+    }
 
     // Check for user
     const user = await User.findOne({ email }).select('+password');

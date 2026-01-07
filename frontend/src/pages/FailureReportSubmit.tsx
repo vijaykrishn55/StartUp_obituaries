@@ -30,7 +30,7 @@ const FailureReportSubmit = () => {
   const [form, setForm] = useState<any>({
     startupName: "",
     industry: "Technology",
-    location: { city: "", state: "", country: "", coordinates: { latitude: 0, longitude: 0 } },
+    location: { city: "", state: "", country: "", coordinates: { type: 'Point', coordinates: [0, 0] } },
     teamSize: 1,
     fundingRaised: 0,
     operationalMonths: 1,
@@ -59,8 +59,8 @@ const FailureReportSubmit = () => {
             location: {
               ...form.location,
               coordinates: {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude
+                type: 'Point',
+                coordinates: [position.coords.longitude, position.coords.latitude]
               }
             }
           });
