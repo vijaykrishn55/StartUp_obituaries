@@ -79,6 +79,20 @@ const PostEdit = () => {
     }
   };
 
+  // Validate funding format (e.g., 5m, 10b, 2.5m)
+  const isValidFundingFormat = (value: string): boolean => {
+    if (!value) return true; // Optional field
+    const fundingRegex = /^\$?\d+(\.\d+)?[mMbB]?$/;
+    return fundingRegex.test(value.trim());
+  };
+
+  // Validate year format (4-digit number)
+  const isValidYear = (value: string): boolean => {
+    if (!value) return true; // Optional field
+    const yearRegex = /^\d{4}$/;
+    return yearRegex.test(value.trim());
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -86,6 +100,44 @@ const PostEdit = () => {
       toast({
         title: "Error",
         description: "Post content is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate postmortem-specific fields
+    if (post?.type === "postmortem" || formData.type === "postmortem") {
+      if (formData.totalFunding && !isValidFundingFormat(formData.totalFunding)) {
+        toast({
+          title: "Invalid funding format",
+          description: "Total funding must be a number followed by 'm' or 'b' (e.g., 5m, 10b, $2.5m)",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (formData.foundedYear && !isValidYear(formData.foundedYear)) {
+        toast({
+          title: "Invalid year format",
+          description: "Founded year must be a 4-digit year (e.g., 2019)",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (formData.closedYear && !isValidYear(formData.closedYear)) {
+        toast({
+          title: "Invalid year format",
+          description: "Closed year must be a 4-digit year (e.g., 2023)",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Validate funding announcement fields
+    if ((post?.type === "funding" || formData.type === "funding") && formData.fundingAmount && !isValidFundingFormat(formData.fundingAmount)) {
+      toast({
+        title: "Invalid funding format",
+        description: "Funding amount must be a number followed by 'm' or 'b' (e.g., 5m, 10b, $2.5m)",
         variant: "destructive",
       });
       return;
@@ -257,8 +309,12 @@ const PostEdit = () => {
                       <Input
                         id="totalFunding"
                         value={formData.totalFunding}
-                        onChange={(e) => setFormData(prev => ({ ...prev, totalFunding: e.target.value }))}
-                        placeholder="e.g., $2M"
+                        onChange={(e) => {
+                          // Only allow numbers, decimal, $, and m/b
+                          const value = e.target.value.replace(/[^0-9.$mMbB]/g, '');
+                          setFormData(prev => ({ ...prev, totalFunding: value }));
+                        }}
+                        placeholder="e.g., 2m, 5b, $2.5m"
                       />
                     </div>
                     <div>
@@ -266,8 +322,13 @@ const PostEdit = () => {
                       <Input
                         id="foundedYear"
                         value={formData.foundedYear}
-                        onChange={(e) => setFormData(prev => ({ ...prev, foundedYear: e.target.value }))}
+                        onChange={(e) => {
+                          // Only allow numbers (4-digit year)
+                          const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                          setFormData(prev => ({ ...prev, foundedYear: value }));
+                        }}
                         placeholder="e.g., 2019"
+                        maxLength={4}
                       />
                     </div>
                     <div>
@@ -275,8 +336,13 @@ const PostEdit = () => {
                       <Input
                         id="closedYear"
                         value={formData.closedYear}
-                        onChange={(e) => setFormData(prev => ({ ...prev, closedYear: e.target.value }))}
+                        onChange={(e) => {
+                          // Only allow numbers (4-digit year)
+                          const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                          setFormData(prev => ({ ...prev, closedYear: value }));
+                        }}
                         placeholder="e.g., 2023"
+                        maxLength={4}
                       />
                     </div>
                   </div>
@@ -292,8 +358,12 @@ const PostEdit = () => {
                       <Input
                         id="fundingAmount"
                         value={formData.fundingAmount}
-                        onChange={(e) => setFormData(prev => ({ ...prev, fundingAmount: e.target.value }))}
-                        placeholder="e.g., $5M"
+                        onChange={(e) => {
+                          // Only allow numbers, decimal, $, and m/b
+                          const value = e.target.value.replace(/[^0-9.$mMbB]/g, '');
+                          setFormData(prev => ({ ...prev, fundingAmount: value }));
+                        }}
+                        placeholder="e.g., 5m, 10b, $2.5m"
                       />
                     </div>
                     <div>

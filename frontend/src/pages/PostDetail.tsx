@@ -92,26 +92,19 @@ const PostDetail = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleLike = async () => {
+  const handleShare = async () => {
+    if (!post) return;
     try {
-      await api.likePost(postId!);
-      const isLiked = post?.likes?.includes(user?.id);
-      setPost((prev: any) => ({
-        ...prev,
-        likes: isLiked
-          ? prev.likes.filter((id: string) => id !== user?.id)
-          : [...(prev.likes || []), user?.id]
-      }));
-      toast({
-        title: isLiked ? "Removed like" : "Post liked",
-        description: isLiked ? "You unliked this post" : "You liked this post",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to like post",
-        variant: "destructive",
-      });
+      const res = await sharePost(post._id);
+      // Always update local state with new share count from backend if available
+      if (res && res.data && typeof res.data.shares === 'number') {
+        setPost((prev) => prev ? { ...prev, shares: res.data.shares } : prev);
+      } else {
+        setPost((prev) => prev ? { ...prev, shares: (prev.shares || 0) + 1 } : prev);
+      }
+      toast.success('Post shared!');
+    } catch (error) {
+      toast.error('Failed to share post');
     }
   };
 
@@ -127,37 +120,6 @@ const PostDetail = () => {
         title: "Error",
         description: error.message || "Failed to bookmark post",
         variant: "destructive",
-      });
-    }
-  };
-
-  const handleShare = async () => {
-    const postUrl = `${window.location.origin}/posts/${postId}`;
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: post?.title || 'Check out this post',
-          text: post?.content?.substring(0, 100) || '',
-          url: postUrl,
-        });
-      } catch (error) {
-        // User cancelled share or error occurred
-        if ((error as Error).name !== 'AbortError') {
-          // Fallback to clipboard
-          navigator.clipboard.writeText(postUrl);
-          toast({
-            title: "Link copied",
-            description: "Post link copied to clipboard",
-          });
-        }
-      }
-    } else {
-      // Fallback for browsers that don't support Web Share API
-      navigator.clipboard.writeText(postUrl);
-      toast({
-        title: "Link copied",
-        description: "Post link copied to clipboard",
       });
     }
   };

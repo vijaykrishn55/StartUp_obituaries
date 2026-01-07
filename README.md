@@ -20,11 +20,11 @@ This is a full-stack web application that combines professional networking with 
 
 ### **🌟 Revolutionary Features**
 
-- 🗺️ **Failure Heatmap** - Geographic visualization of startup failures with detailed analytics. Learn where startups fail and why. See patterns by location, industry, and failure reason.
+- 🗺️ **Failure Heatmap** - Geographic visualization of startup failures with detailed analytics. **NEW: Zoom-based hierarchical map (Country → State → City) with real coordinates for 195+ countries. Interactive Leaflet map with OpenStreetMap tiles.** Learn where startups fail and why. See patterns by location, industry, and failure reason.
 
 - 💼 **Resurrection Marketplace** - Buy and sell assets from failed startups. $12.4M+ in assets traded. Categories include domains, source code, customer databases, IP, equipment, and more.
 
-- 🆘 **Live Autopsy War Rooms** - Real-time community support during startup shutdowns. Join live sessions where founders in crisis get advice from mentors, investors, and fellow entrepreneurs. You're not alone.
+- 🆘 **Live Autopsy War Rooms** - Real-time community support during startup shutdowns. **Enhanced: All participants can send messages with type indicators (💬 Chat, 💡 Advice, ❓ Question, 📎 Resource, ✅ Action Item). Video calls automatically close when host ends session.** Join live sessions where founders in crisis get advice from mentors, investors, and fellow entrepreneurs. You're not alone.
 
 ## 📁 Project Structure
 
@@ -277,7 +277,40 @@ Built with shadcn/ui:
 - Loading states
 - Error boundaries
 
-## 📈 Recent Enhancements (December 2024)
+## 📈 Recent Enhancements (January 2026)
+
+### Failure Heatmap - Advanced Mapping System
+- ✅ **Hierarchical Zoom Levels** - Smart map that shows:
+  - **Zoom 1-4**: Country-level markers with total failures
+  - **Zoom 5-7**: State/Province-level markers with regional breakdown
+  - **Zoom 8+**: City-level markers with exact startup details
+- ✅ **195+ Countries Support** - Comprehensive global coordinate mapping in `countryCoordinates.ts`
+- ✅ **Dynamic Marker Generation** - Only shows markers for countries/states/cities with actual failure reports
+- ✅ **Real Geographic Positioning** - Accurate lat/lng coordinates, markers stay precise at all zoom levels
+- ✅ **Interactive Leaflet Integration** - OpenStreetMap tiles with CircleMarker components
+- ✅ **Sample India Data** - 10 realistic failure reports across Mumbai, Bangalore, Delhi, Hyderabad, Chennai, Pune, and more
+- ✅ **Zoom Level Indicator** - Live display showing current view granularity
+- ✅ **Rich Popups** - City-level shows startup names, industry, and failure reasons
+
+### War Rooms - Enhanced Collaboration
+- ✅ **Message Type Selector** - All participants (not just host) can send messages as:
+  - 💬 **Chat** - General discussion
+  - 💡 **Advice** - Expert guidance
+  - ❓ **Question** - Asking for help
+  - 📎 **Resource** - Sharing links/documents
+  - ✅ **Action Item** - Trackable tasks
+- ✅ **Universal Messaging** - All joined participants can contribute (previously creator-only)
+- ✅ **Auto Video Close** - Video call automatically ends when host clicks "End War Room"
+
+### Job Board - Improved UX
+- ✅ **Apply Flow Fix** - "Apply Now" button on job listing page navigates to detail page instead of opening dialog
+- ✅ **Cleaner Interface** - Application form only appears on job detail page for better focus
+
+### Profile & Content
+- ✅ **Avatar Upload Fix** - Profile photos now upload correctly with full URL paths
+- ✅ **Share Count Fix** - Post share counts increment and display properly
+
+### Previous Enhancements (December 2024)
 
 ### Core Features
 - ✅ **Failure Heatmap** - Geographic failure analysis with detailed reports

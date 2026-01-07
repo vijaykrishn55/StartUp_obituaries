@@ -49,7 +49,8 @@ import {
   Plus,
   Clock,
   X,
-  Loader2
+  Loader2,
+  Bookmark
 } from "lucide-react";
 
 const ProfilePage = () => {
@@ -457,10 +458,16 @@ const ProfilePage = () => {
                       Share Profile
                     </Button>
                     {isOwnProfile && (
-                      <Button size="sm" onClick={() => setEditProfileOpen(true)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Profile
-                      </Button>
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => navigate('/bookmarks')}>
+                          <Bookmark className="h-4 w-4 mr-2" />
+                          Bookmarks
+                        </Button>
+                        <Button size="sm" onClick={() => setEditProfileOpen(true)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Profile
+                        </Button>
+                      </>
                     )}
                     {!isOwnProfile && (
                       <Button size="sm" onClick={() => navigate(`/messages?user=${displayUser?._id || displayUser?.id}`)}>

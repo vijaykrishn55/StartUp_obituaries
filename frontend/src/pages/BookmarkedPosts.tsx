@@ -2,8 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BookmarkIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BookmarkIcon, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Navigation from "@/components/Navigation";
 
 const BookmarkedPosts = () => {
   const navigate = useNavigate();
@@ -14,15 +16,34 @@ const BookmarkedPosts = () => {
 
   const posts = Array.isArray(data) ? data : (data as any)?.data || (data as any)?.posts || [];
 
-  if (isLoading) return <div className="p-6">Loading bookmarked posts...</div>;
-  if (error) return <div className="p-6">Failed to load bookmarks.</div>;
+  if (isLoading) return (
+    <div className="min-h-screen bg-background">
+      <Navigation />
+      <div className="p-6">Loading bookmarked posts...</div>
+    </div>
+  );
+  
+  if (error) return (
+    <div className="min-h-screen bg-background">
+      <Navigation />
+      <div className="p-6">Failed to load bookmarks.</div>
+    </div>
+  );
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-4">
-      <div className="flex items-center gap-2 mb-6">
-        <BookmarkIcon className="h-6 w-6" />
-        <h1 className="text-2xl font-bold">Bookmarked Posts</h1>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Navigation />
+      <div className="max-w-4xl mx-auto p-6 space-y-4">
+        <div className="flex items-center gap-4 mb-6">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <BookmarkIcon className="h-6 w-6" />
+            <h1 className="text-2xl font-bold">Bookmarked Posts</h1>
+          </div>
+        </div>
 
       {posts.length === 0 ? (
         <Card>
@@ -69,6 +90,7 @@ const BookmarkedPosts = () => {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 };

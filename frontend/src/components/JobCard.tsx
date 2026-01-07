@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ApplyJobDialog } from "@/components/ApplyJobDialog";
 import { MapPin, DollarSign, Clock, Building2, Check, Users } from "lucide-react";
 
 interface JobCardProps {
@@ -35,7 +34,6 @@ const JobCard = ({
   isOwner = false,
   applicants = 0
 }: JobCardProps) => {
-  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
   const [applied, setApplied] = useState(hasApplied);
   const navigate = useNavigate();
 
@@ -47,13 +45,10 @@ const JobCard = ({
     e.stopPropagation();
     if (isOwner) {
       navigate(`/jobs/${jobId}/applications`);
-    } else if (!applied) {
-      setApplyDialogOpen(true);
+    } else {
+      // Navigate to job detail page where user can apply (no dialog on listing page)
+      navigate(`/jobs/${jobId || '1'}`);
     }
-  };
-
-  const handleApplicationSuccess = () => {
-    setApplied(true);
   };
 
   return (
@@ -123,15 +118,6 @@ const JobCard = ({
           <Button className="w-full" onClick={handleApplyClick}>Apply Now</Button>
         )}
       </CardFooter>
-
-      <ApplyJobDialog 
-        open={applyDialogOpen} 
-        onOpenChange={setApplyDialogOpen}
-        jobTitle={title}
-        company={company}
-        jobId={jobId}
-        onSuccess={handleApplicationSuccess}
-      />
     </Card>
   );
 };

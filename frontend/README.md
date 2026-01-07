@@ -104,6 +104,8 @@ frontend/
 - **date-fns** - Date utilities
 - **React Hook Form** - Form handling
 - **Zod** - Schema validation
+- **Leaflet** 1.9.4 - Interactive maps
+- **React-Leaflet** 4.2.1 - React bindings for Leaflet
 
 ## 🚀 Getting Started
 
@@ -320,6 +322,55 @@ Pre-built, customizable components:
 - **Textarea** - Multi-line input
 - **Toast** - Notifications
 - And 30+ more components
+
+### **Mapping Components**
+
+#### **FailureHeatmap** (`pages/FailureHeatmap.tsx`)
+Advanced geographic visualization with hierarchical zoom:
+
+**Features:**
+- **MapContainer** - Main Leaflet map component with OpenStreetMap tiles
+- **ZoomHandler** - Custom hook to detect zoom level changes (1-18)
+- **CircleMarker** - Dynamic markers with color-coded intensity
+- **Popup** - Interactive popups with failure details and action buttons
+
+**Hierarchical Levels:**
+- **Zoom 1-4**: Country markers - Shows aggregate failures per country
+- **Zoom 5-7**: State markers - Shows regional breakdown within countries
+- **Zoom 8+**: City markers - Shows individual startup failures with names
+
+**Dynamic Data Processing:**
+- `countryStats` - Aggregates failures by country
+- `stateStats` - Aggregates failures by state/province
+- `cityStats` - Aggregates failures by city with report details
+
+**Coordinate System:**
+- `countryCoordinates.ts` - 195+ countries with lat/lng coordinates
+- `getCountryCoordinates()` - Dynamic coordinate lookup function
+- Real geographic positioning (no percentage-based calculations)
+
+**Styling:**
+- Leaflet CSS with dark mode support (`index.css`)
+- Color-coded markers: 🟢 Green (low) → 🟡 Yellow → 🟠 Orange → 🔴 Red (critical)
+- Zoom level indicator badge showing current view granularity
+
+### **War Room Components**
+
+#### **WarRoomDetail** (`pages/WarRoomDetail.tsx`)
+Real-time collaboration session with enhanced messaging:
+
+**Message Types:**
+- 💬 **Chat** - General discussion
+- 💡 **Advice** - Expert guidance  
+- ❓ **Question** - Help requests
+- 📎 **Resource** - Shared links
+- ✅ **Action Item** - Trackable tasks
+
+**Enhanced Features:**
+- All participants can select message types (not just host)
+- Video call auto-closes when host ends war room
+- Real-time message updates with 5-second polling
+- Jitsi Meet integration for video conferencing
 
 ## 📡 API Integration
 

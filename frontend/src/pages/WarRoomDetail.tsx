@@ -116,6 +116,7 @@ const WarRoomDetail = () => {
     onSuccess: () => {
       toast({ title: "War Room Ended", description: "The session has been concluded." });
       setShowEndDialog(false);
+      setShowVideo(false); // Close video call when ending
       qc.invalidateQueries({ queryKey: ["war-room", id] });
     },
     onError: (e: any) => {
@@ -467,9 +468,9 @@ const WarRoomDetail = () => {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
-                <form onSubmit={(e) => { e.preventDefault(); if (text.trim() && isParticipant) sendMsg.mutate(); }} className="space-y-2">
+                <form onSubmit={(e) => { e.preventDefault(); if (text.trim() && isParticipant && !isEnded) sendMsg.mutate(); }} className="space-y-2">
                   <div className="flex gap-2">
-                    <Select value={messageType} onValueChange={setMessageType} disabled={!isParticipant}>
+                    <Select value={messageType} onValueChange={setMessageType} disabled={isEnded || !isParticipant}>
                       <SelectTrigger className="w-[140px]">
                         <SelectValue />
                       </SelectTrigger>

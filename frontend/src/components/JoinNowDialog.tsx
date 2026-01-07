@@ -43,6 +43,12 @@ export const JoinNowDialog = ({ open, onOpenChange, onSwitchToSignIn }: JoinNowD
       toast({ title: "Name must be at least 2 characters.", variant: "destructive" });
       return;
     }
+    // Validate name contains only letters and spaces (no numbers)
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (!nameRegex.test(name.trim())) {
+      toast({ title: "Name must contain only letters and spaces.", variant: "destructive" });
+      return;
+    }
     if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
       toast({ title: "Please enter a valid email address.", variant: "destructive" });
       return;
@@ -109,7 +115,11 @@ export const JoinNowDialog = ({ open, onOpenChange, onSwitchToSignIn }: JoinNowD
               type="text"
               placeholder="John Doe"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                // Only allow letters and spaces
+                const value = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                setName(value);
+              }}
               required
             />
           </div>

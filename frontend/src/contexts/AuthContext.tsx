@@ -79,12 +79,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const data = await response.json();
       
+      // Ensure avatar is absolute URL
+      let avatar = data.data.user.avatar;
+      if (avatar && !/^https?:\/\//.test(avatar)) {
+        avatar = `${window.location.origin}${avatar}`;
+      }
       const userData: User = {
         id: data.data.user.id,
         name: data.data.user.name,
         email: data.data.user.email,
         userType: data.data.user.userType,
-        avatar: data.data.user.avatar,
+        avatar,
         bio: data.data.user.bio,
         company: data.data.user.company,
         location: data.data.user.location,
@@ -151,12 +156,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const data = await response.json();
       
+      let avatar2 = data.data.user.avatar;
+      if (avatar2 && !/^https?:\/\//.test(avatar2)) {
+        avatar2 = `${window.location.origin}${avatar2}`;
+      }
       const newUser: User = {
         id: data.data.user.id,
         name: data.data.user.name,
         email: data.data.user.email,
         userType: data.data.user.userType,
-        avatar: data.data.user.avatar,
+        avatar: avatar2,
         bio: data.data.user.bio,
         company: data.data.user.company,
         location: data.data.user.location,
@@ -226,12 +235,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         const userData = data.data?.user || data.user || data.data || data;
+        let avatar3 = userData.avatar;
+        if (avatar3 && !/^https?:\/\//.test(avatar3)) {
+          avatar3 = `${window.location.origin}${avatar3}`;
+        }
         const updatedUser: User = {
           id: userData._id || userData.id,
           name: userData.name,
           email: userData.email,
           userType: userData.userType,
-          avatar: userData.avatar,
+          avatar: avatar3,
           bio: userData.bio,
           company: userData.company,
           location: userData.location,

@@ -172,11 +172,63 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
     setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
+  // Validate funding format (e.g., 5m, 10b, 2.5m)
+  const isValidFundingFormat = (value: string): boolean => {
+    if (!value) return true; // Optional field
+    const fundingRegex = /^\$?\d+(\.\d+)?[mMbB]?$/;
+    return fundingRegex.test(value.trim());
+  };
+
+  // Validate year format (4-digit number)
+  const isValidYear = (value: string): boolean => {
+    if (!value) return true; // Optional field
+    const yearRegex = /^\d{4}$/;
+    return yearRegex.test(value.trim());
+  };
+
   const handlePublish = () => {
     if (!postType || !title || !content) {
       toast({
         title: "Missing information",
         description: "Please fill in post type, title, and content",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate postmortem-specific fields
+    if (postType === "postmortem") {
+      if (totalFunding && !isValidFundingFormat(totalFunding)) {
+        toast({
+          title: "Invalid funding format",
+          description: "Total funding must be a number followed by 'm' or 'b' (e.g., 5m, 10b, $2.5m)",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (foundedYear && !isValidYear(foundedYear)) {
+        toast({
+          title: "Invalid year format",
+          description: "Founded year must be a 4-digit year (e.g., 2019)",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (closedYear && !isValidYear(closedYear)) {
+        toast({
+          title: "Invalid year format",
+          description: "Closed year must be a 4-digit year (e.g., 2023)",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Validate funding announcement fields
+    if (postType === "funding" && fundingAmount && !isValidFundingFormat(fundingAmount)) {
+      toast({
+        title: "Invalid funding format",
+        description: "Funding amount must be a number followed by 'm' or 'b' (e.g., 5m, 10b, $2.5m)",
         variant: "destructive",
       });
       return;
@@ -391,8 +443,12 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
                         <Input
                           id="totalFunding"
                           value={totalFunding}
-                          onChange={(e) => setTotalFunding(e.target.value)}
-                          placeholder="e.g., $2M"
+                          onChange={(e) => {
+                            // Only allow numbers, decimal, $, and m/b
+                            const value = e.target.value.replace(/[^0-9.$mMbB]/g, '');
+                            setTotalFunding(value);
+                          }}
+                          placeholder="e.g., 2m, 5b, $2.5m"
                         />
                       </div>
                       <div>
@@ -402,8 +458,13 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
                         <Input
                           id="foundedYear"
                           value={foundedYear}
-                          onChange={(e) => setFoundedYear(e.target.value)}
+                          onChange={(e) => {
+                            // Only allow numbers (4-digit year)
+                            const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                            setFoundedYear(value);
+                          }}
                           placeholder="e.g., 2019"
+                          maxLength={4}
                         />
                       </div>
                       <div>
@@ -413,8 +474,13 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
                         <Input
                           id="closedYear"
                           value={closedYear}
-                          onChange={(e) => setClosedYear(e.target.value)}
+                          onChange={(e) => {
+                            // Only allow numbers (4-digit year)
+                            const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                            setClosedYear(value);
+                          }}
                           placeholder="e.g., 2023"
+                          maxLength={4}
                         />
                       </div>
                     </div>
@@ -435,8 +501,12 @@ export const RichPostEditor = ({ isOpen, onClose, onPublish }: RichPostEditorPro
                         <Input
                           id="fundingAmount"
                           value={fundingAmount}
-                          onChange={(e) => setFundingAmount(e.target.value)}
-                          placeholder="e.g., $5M"
+                          onChange={(e) => {
+                            // Only allow numbers, decimal, $, and m/b
+                            const value = e.target.value.replace(/[^0-9.$mMbB]/g, '');
+                            setFundingAmount(value);
+                          }}
+                          placeholder="e.g., 5m, 10b, $2.5m"
                           required
                         />
                       </div>

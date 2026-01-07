@@ -284,6 +284,11 @@ export const api = {
       method: 'POST',
     }),
 
+  sharePost: (id: string) =>
+    apiFetch(`/posts/${id}/share`, {
+      method: 'POST',
+    }),
+
   getPostComments: (id: string) => apiFetch(`/posts/${id}/comments`),
 
   commentOnPost: (id: string, content: string) =>
@@ -314,7 +319,7 @@ export const api = {
 
   uploadAvatar: async (file: File) => {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('avatar', file);
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/users/me/avatar`, {
       method: 'POST',
@@ -631,10 +636,11 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getHeatmapData: (params?: { industry?: string; reason?: string }) => {
+  getHeatmapData: (params?: { industry?: string; reason?: string; country?: string }) => {
     const query = new URLSearchParams();
     if (params?.industry) query.append('industry', params.industry);
     if (params?.reason) query.append('reason', params.reason);
+    if (params?.country) query.append('country', params.country);
     return apiFetch(`/failure-reports/heatmap?${query}`);
   },
 

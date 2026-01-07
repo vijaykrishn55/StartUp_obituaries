@@ -113,3 +113,32 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Leaflet map styling fixes */
+.leaflet-container {
+  font-family: inherit;
+  z-index: 0;
+}
+
+.leaflet-popup-content-wrapper {
+  @apply rounded-lg shadow-xl;
+}
+
+.leaflet-popup-tip {
+  @apply shadow-lg;
+}
+
+/* Fix dark mode for Leaflet controls */
+.dark .leaflet-control-zoom a,
+.dark .leaflet-control-attribution {
+  @apply bg-slate-800 text-white border-slate-700;
+}
+
+.dark .leaflet-control-zoom a:hover {
+  @apply bg-slate-700;
+}
+
+.leaflet-control-zoom a,
+.leaflet-control-attribution {
+  @apply transition-colors duration-200;
+}
